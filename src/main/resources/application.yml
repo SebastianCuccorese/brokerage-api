@@ -34,11 +34,21 @@ logging:
     correlation: '%replace([%X{requestId:-}] ){"\[\] ", ""}'
 
 management:
+  server:
+    # Actuator is off the public port so metrics and probes are not reachable through the API's ingress.
+    port: 8081
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
   endpoint:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,db
+          show-components: always
