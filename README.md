@@ -1,30 +1,40 @@
 # brokerage-api
 
-API REST de un broker: portfolio, búsqueda de instrumentos y órdenes de mercado y límite. · [English](README.en.md)
+API REST de un broker: portfolio, búsqueda de instrumentos y órdenes de mercado y límite. Java 21 y Spring Boot 4. · [English](README.en.md)
 
-## Arquitectura
+Las decisiones de diseño y el porqué de cada una están en [docs/decisions.md](docs/decisions.md).
 
-El sistema tiene dos mitades con necesidades distintas, y cada una usa el estilo que le sirve. Enviar y cancelar órdenes es un problema de reglas (estados, rechazos, saldo), así que se modela con DDD. El portfolio y la búsqueda son lecturas: se calculan a partir de los datos, sin pasar por el modelo de dominio.
+## Levantar el proyecto
 
-- **Escritura (DDD):** la orden es un agregado que controla sus propias transiciones (solo se cancela desde `NEW`), y el saldo se valida con la cuenta bloqueada, para que dos órdenes simultáneas no gasten el mismo dinero.
-- **Lectura (proyección):** el portfolio se recalcula desde las órdenes ejecutadas, con costo promedio exacto.
-- **Sin capa de dominio aislada:** las entidades JPA son el modelo. Separarlas de Spring agregaría puertos y mappers sin beneficio a este tamaño.
-- **Dos módulos:** `market` (instrumentos y precios) y `trading` (cuentas, órdenes y portfolio). `trading` usa `market`, nunca al revés.
+Requisitos: Java 21 y Docker.
 
-## Dinero
+**Con la base local**, cargada con los datos provistos:
 
-Todo importe es un `Money` (moneda + monto), nunca un número suelto. Hoy solo hay pesos (ARS), como pide el enunciado, pero el modelo admite otras monedas sin cambiar ninguna firma.
+```sh
+docker compose up -d
+./mvnw spring-boot:run
+```
 
-- **Precisión:** `BigDecimal` en todos los cálculos. Se redondea una sola vez, al responder, a los decimales de la moneda (half-even).
-- **Sin mezclas:** combinar monedas distintas es un error, nunca una conversión implícita.
-- **Base de datos:** las columnas de precio no guardan la moneda y se leen como ARS. Para soportar otra moneda habría que agregar esa columna.
+**Con la base provista:** copiá `.env.example` a `.env`, completá la conexión y corré `./mvnw spring-boot:run`. El `.env` está en `.gitignore` y nunca se commitea. Si existe, tiene prioridad sobre la base local.
 
-## Búsqueda de instrumentos
+La API queda en `http://localhost:8080`.
 
-`GET /instruments?query=banco` devuelve los instrumentos cuyo ticker o nombre contiene el texto, sin distinguir mayúsculas y ordenados por ticker.
+## Tests
 
-- El peso no aparece: es la caja de la cuenta, no un activo que se compre.
-- Los tipos se exponen en inglés (`STOCK`, `CURRENCY`). Un converter traduce los valores de la base (`ACCIONES`, `MONEDA`), así el vocabulario de la tabla no se filtra al modelo.
-- `%` y `_` se buscan como texto literal, no como comodines.
-- Es una proyección directa a la respuesta. No hay reglas que proteger, así que no pasa por un servicio.
-- Mejora posible: ignorar acentos ("compania" encontraría "Compañía") con la extensión `unaccent` de Postgres.
+```sh
+./mvnw verify
+```
+
+Usan un Postgres descartable (Testcontainers) con los mismos datos, así que necesitan Docker y nunca tocan una base compartida.
+
+## Endpoints
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| GET | `/instruments?query=banco` | Busca instrumentos por ticker o nombre |
+
+Hay ejemplos listos para ejecutar en [`http/`](http/) (REST Client de VS Code o IntelliJ).
+
+## Uso de IA
+
+El proyecto se construyó con agentes de IA bajo las reglas de [AGENTS.md](AGENTS.md): las decisiones son humanas, cada funcionalidad va en su propia branch y PR, y todo cambio llega con sus tests.
