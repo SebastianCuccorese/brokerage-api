@@ -63,6 +63,8 @@ Interactive API docs: <http://localhost:8080/swagger-ui.html>
 
 Ready-to-run examples live in [`http/`](http/) (VS Code REST Client or IntelliJ).
 
+The Postman collection is in [`postman/`](postman/): import it with `local.postman_environment.json`, or run it all with `docker run --rm -v "$PWD/postman:/etc/newman" postman/newman:6-alpine run brokerage-api.postman_collection.json -e local.postman_environment.json --env-var baseUrl=http://host.docker.internal:8080` (on Linux, `--network host` and no `--env-var`).
+
 ## Use of AI
 
 The project was built with AI agents under the rules in [AGENTS.md](AGENTS.md): decisions are human, each feature goes in its own branch and PR, and every change comes with its tests.
