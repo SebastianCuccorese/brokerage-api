@@ -10,3 +10,11 @@ El sistema tiene dos mitades con necesidades distintas, y cada una usa el estilo
 - **Lectura (proyección):** el portfolio se recalcula desde las órdenes ejecutadas, con costo promedio exacto.
 - **Sin capa de dominio aislada:** las entidades JPA son el modelo. Separarlas de Spring agregaría puertos y mappers sin beneficio a este tamaño.
 - **Dos módulos:** `market` (instrumentos y precios) y `trading` (cuentas, órdenes y portfolio). `trading` usa `market`, nunca al revés.
+
+## Dinero
+
+Todo importe es un `Money` (moneda + monto), nunca un número suelto. Hoy solo hay pesos (ARS), como pide el enunciado, pero el modelo admite otras monedas sin cambiar ninguna firma.
+
+- **Precisión:** `BigDecimal` en todos los cálculos. Se redondea una sola vez, al responder, a los decimales de la moneda (half-even).
+- **Sin mezclas:** combinar monedas distintas es un error, nunca una conversión implícita.
+- **Base de datos:** las columnas de precio no guardan la moneda y se leen como ARS. Para soportar otra moneda habría que agregar esa columna.

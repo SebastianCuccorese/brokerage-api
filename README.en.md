@@ -10,3 +10,11 @@ The system has two halves with different needs, and each uses the style that fit
 - **Reads (projection):** the portfolio is recomputed from the filled orders, with an exact average cost.
 - **No isolated domain layer:** the JPA entities are the model. Separating them from Spring would add ports and mappers with no benefit at this size.
 - **Two modules:** `market` (instruments and prices) and `trading` (accounts, orders and portfolio). `trading` uses `market`, never the other way round.
+
+## Money
+
+Every amount is a `Money` (currency + amount), never a bare number. Today there are only pesos (ARS), as the statement asks, but the model accepts other currencies without changing any signature.
+
+- **Precision:** `BigDecimal` in every calculation. It is rounded once, when responding, to the currency's decimals (half-even).
+- **No mixing:** combining different currencies is an error, never an implicit conversion.
+- **Database:** the price columns do not store the currency and are read as ARS. Supporting another currency would mean adding that column.
