@@ -14,7 +14,7 @@ class OpenApiConfig {
     OpenAPI openApi(@Value("${app.version}") String version) {
         return new OpenAPI().info(new Info()
                 .title("brokerage-api")
-                .description("Brokerage API: portfolio, instrument search and orders")
+                .description("Brokerage API: portfolio, instrument search, orders and cash transfers")
                 .version(version));
     }
 }
