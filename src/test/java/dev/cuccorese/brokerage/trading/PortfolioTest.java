@@ -57,6 +57,8 @@ class PortfolioTest {
     @Test
     void anUnknownUserIsNotFound() {
         assertThat(mvc.get().uri("/users/999/portfolio")).hasStatus(HttpStatus.NOT_FOUND)
-                .bodyJson().extractingPath("$.detail").isEqualTo("User 999 not found");
+                .bodyJson().isLenientlyEqualTo("""
+                        {"code": "USER_NOT_FOUND", "detail": "User 999 not found"}
+                        """);
     }
 }

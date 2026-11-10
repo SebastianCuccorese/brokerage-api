@@ -57,6 +57,15 @@ Una orden de mercado se ejecuta al último `close` y queda `FILLED`. Una límite
 - **Hora en UTC:** `datetime` es un instante (`timestamptz`) y la API lo devuelve en ISO-8601 UTC (`2026-11-10T14:30:00Z`). Las órdenes provistas tenían la hora de Buenos Aires sin zona (de 11:13 a 16:11, el horario del mercado local); la migración V4 las convirtió una sola vez, sin cambiar su orden. La hora sale de un único `Clock`, que los tests fijan.
 - **Cancelar no verifica al dueño:** no se comprueba que la orden sea de quien lo pide, porque no hay autenticación, y un `userId` enviado por el cliente solo parecería seguridad.
 
+## Errores
+
+Toda respuesta de error es un problem detail (RFC 9457) con un `code` estable y el `requestId` del pedido. El dominio lanza excepciones que llevan su `code` pero no saben qué es HTTP; un único `@RestControllerAdvice` convierte cada categoría en un estado. Así el cliente decide por el `code`, y soporte encuentra los logs con el `requestId`.
+
+- **Categorías:** `NotFoundException` (404), `InvalidRequestException` (400) y `ConflictException` (409), todas con un `ErrorCode` (`ORDER_NOT_FOUND`, `ORDER_NOT_CANCELLABLE`, `SIZE_OR_AMOUNT_REQUIRED`...). Un código nunca se renombra ni cambia de significado; el texto sí puede cambiar.
+- **Validación:** un 400 `VALIDATION_FAILED` con una lista `errors` de `{field, message}`, para que el cliente marque el campo. Un JSON roto es `MALFORMED_REQUEST` y no repite el mensaje de Jackson.
+- **Errores del framework** (método no permitido, ruta inexistente) conservan su estado y suman el `requestId`, sin `code`.
+- **Un 500 nunca filtra detalles:** responde `INTERNAL_ERROR` con un texto genérico que pide citar el `requestId`; el mensaje y el stack quedan solo en el log, en nivel ERROR.
+
 ## Logs
 
 Cada request lleva un id (`X-Request-Id`) que aparece en todas sus líneas de log y se devuelve en la respuesta, para seguir un pedido de punta a punta. Se registran los eventos de negocio a nivel INFO (llegan con las órdenes); nunca emails ni secretos.
