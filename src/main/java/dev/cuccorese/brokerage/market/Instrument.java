@@ -1,13 +1,17 @@
 package dev.cuccorese.brokerage.market;
 
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "instruments")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Instrument {
 
     @Id
@@ -17,25 +21,6 @@ public class Instrument {
 
     private String name;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = InstrumentTypeConverter.class)
     private InstrumentType type;
-
-    protected Instrument() {
-    }
-
-    public Integer id() {
-        return id;
-    }
-
-    public String ticker() {
-        return ticker;
-    }
-
-    public String name() {
-        return name;
-    }
-
-    public InstrumentType type() {
-        return type;
-    }
 }

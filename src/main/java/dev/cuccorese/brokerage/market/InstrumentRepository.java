@@ -10,7 +10,7 @@ public interface InstrumentRepository extends JpaRepository<Instrument, Integer>
     @Query("""
             select new dev.cuccorese.brokerage.market.InstrumentView(i.id, i.ticker, i.name, i.type)
             from Instrument i
-            where i.type <> dev.cuccorese.brokerage.market.InstrumentType.MONEDA
+            where i.type <> dev.cuccorese.brokerage.market.InstrumentType.CURRENCY
               and (lower(i.ticker) like lower(:pattern) escape '\\'
                    or lower(i.name) like lower(:pattern) escape '\\')
             order by i.ticker

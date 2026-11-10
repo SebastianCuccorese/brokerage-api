@@ -27,7 +27,7 @@ class InstrumentSearchTest {
     void findsByTicker() {
         assertThat(search("bbar")).hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
-                        [{"id": 22, "ticker": "BBAR", "name": "Banco Frances", "type": "ACCIONES"}]
+                        [{"id": 22, "ticker": "BBAR", "name": "Banco Frances", "type": "STOCK"}]
                         """);
     }
 

@@ -23,7 +23,8 @@ Every amount is a `Money` (currency + amount), never a bare number. Today there 
 
 `GET /instruments?query=banco` returns the instruments whose ticker or name contains the text, case-insensitive and ordered by ticker.
 
-- The peso (`MONEDA`) is left out: it is the account's cash, not an asset you buy.
+- The peso is left out: it is the account's cash, not an asset you buy.
+- Types are exposed in English (`STOCK`, `CURRENCY`). A converter translates the database values (`ACCIONES`, `MONEDA`), so the table's vocabulary does not leak into the model.
 - `%` and `_` are searched as literal text, not as wildcards.
 - It is a direct projection to the response. There are no rules to protect, so it skips the service layer.
 - Possible improvement: ignore accents ("compania" would find "Compañía") with Postgres's `unaccent` extension.

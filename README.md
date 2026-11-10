@@ -23,7 +23,8 @@ Todo importe es un `Money` (moneda + monto), nunca un número suelto. Hoy solo h
 
 `GET /instruments?query=banco` devuelve los instrumentos cuyo ticker o nombre contiene el texto, sin distinguir mayúsculas y ordenados por ticker.
 
-- El peso (`MONEDA`) no aparece: es la caja de la cuenta, no un activo que se compre.
+- El peso no aparece: es la caja de la cuenta, no un activo que se compre.
+- Los tipos se exponen en inglés (`STOCK`, `CURRENCY`). Un converter traduce los valores de la base (`ACCIONES`, `MONEDA`), así el vocabulario de la tabla no se filtra al modelo.
 - `%` y `_` se buscan como texto literal, no como comodines.
 - Es una proyección directa a la respuesta. No hay reglas que proteger, así que no pasa por un servicio.
 - Mejora posible: ignorar acentos ("compania" encontraría "Compañía") con la extensión `unaccent` de Postgres.
