@@ -3,6 +3,7 @@ package dev.cuccorese.brokerage.trading;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.cuccorese.brokerage.TestcontainersConfiguration;
+import dev.cuccorese.brokerage.shared.ConflictException;
 import dev.cuccorese.brokerage.shared.Currencies;
 import dev.cuccorese.brokerage.shared.Money;
 import java.math.BigDecimal;
@@ -69,7 +70,7 @@ class ConcurrentOrdersTest {
         assertThat(twiceAtOnce(() -> {
             try {
                 return orders.cancel(orderId).getStatus().name();
-            } catch (OrderNotCancellableException e) {
+            } catch (ConflictException e) {
                 return "NOT_CANCELLABLE";
             }
         })).containsExactlyInAnyOrder("CANCELLED", "NOT_CANCELLABLE");

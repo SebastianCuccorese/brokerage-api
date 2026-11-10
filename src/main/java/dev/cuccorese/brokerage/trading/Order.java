@@ -2,7 +2,10 @@ package dev.cuccorese.brokerage.trading;
 
 import dev.cuccorese.brokerage.market.Instrument;
 import dev.cuccorese.brokerage.market.InstrumentType;
+import dev.cuccorese.brokerage.shared.ConflictException;
 import dev.cuccorese.brokerage.shared.Currencies;
+import dev.cuccorese.brokerage.shared.ErrorCode;
+import dev.cuccorese.brokerage.shared.InvalidRequestException;
 import dev.cuccorese.brokerage.shared.Money;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -73,12 +76,12 @@ public class Order {
      * executes at {@code lastClose} and a LIMIT order is priced at its limit. An order the
      * user cannot cover is still an order: it comes back REJECTED with its reason.
      *
-     * @throws InvalidOrderException when the instrument is the cash currency
+     * @throws InvalidRequestException when the instrument is the cash currency
      */
     public static Order place(PlaceOrder request, Instrument instrument, Optional<Money> lastClose,
             Ledger ledger, Instant at) {
         if (instrument.getType() == InstrumentType.CURRENCY) {
-            throw new InvalidOrderException(instrument.getTicker() + " is cash, not a tradable instrument");
+            throw new InvalidRequestException(ErrorCode.INSTRUMENT_NOT_TRADABLE, instrument.getTicker() + " is cash, not a tradable instrument");
         }
         Optional<Money> executionPrice = switch (request.type()) {
             case MARKET -> lastClose;
@@ -124,10 +127,11 @@ public class Order {
         return Optional.empty();
     }
 
-    /** @throws OrderNotCancellableException unless the order is still open ({@code NEW}) */
+    /** @throws ConflictException unless the order is still open ({@code NEW}) */
     public void cancel() {
         if (status != OrderStatus.NEW) {
-            throw new OrderNotCancellableException(id, status);
+            throw new ConflictException(ErrorCode.ORDER_NOT_CANCELLABLE,
+                    "Order " + id + " is " + status + "; only NEW orders can be cancelled");
         }
         status = OrderStatus.CANCELLED;
     }

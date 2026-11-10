@@ -4,6 +4,7 @@ import dev.cuccorese.brokerage.market.Instrument;
 import dev.cuccorese.brokerage.market.InstrumentRepository;
 import dev.cuccorese.brokerage.market.Quote;
 import dev.cuccorese.brokerage.market.QuoteRepository;
+import dev.cuccorese.brokerage.shared.ErrorCode;
 import dev.cuccorese.brokerage.shared.Money;
 import dev.cuccorese.brokerage.shared.NotFoundException;
 import dev.cuccorese.brokerage.trading.PortfolioView.PositionView;
@@ -30,7 +31,7 @@ public class PortfolioService {
     @Transactional(readOnly = true)
     public PortfolioView portfolioOf(Integer userId) {
         if (!users.existsById(userId)) {
-            throw new NotFoundException("User", userId);
+            throw new NotFoundException(ErrorCode.USER_NOT_FOUND, "User", userId);
         }
         Ledger ledger = orders.ledgerOf(userId);
         List<Position> open = ledger.openPositions();
