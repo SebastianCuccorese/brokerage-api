@@ -18,7 +18,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "marketdata")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Quote {
+public class DailyPrice {
 
     @Id
     private Integer id;
