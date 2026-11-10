@@ -25,7 +25,7 @@ COPY --from=build --chown=10001:10001 /workspace/layers/application/ ./
 
 # Sizes the heap from the container memory limit instead of the host's.
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75"
-EXPOSE 8080
+EXPOSE 8080 8081
 
 # Exec form: the JVM is PID 1 and receives SIGTERM, so Spring shuts down gracefully.
 ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
