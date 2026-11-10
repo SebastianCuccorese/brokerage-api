@@ -1,6 +1,6 @@
 # Evolución
 
-Cómo crecería el sistema a medida que aumentan los usuarios, el volumen y las exigencias. Lo que ya está construido, y por qué, está en [decisions.md](decisions.md). · [English](evolution.en.md)
+Cómo crecería el sistema a medida que aumentan los usuarios, el volumen y las exigencias. Lo que ya está construido, y por qué, está en las [decisiones de negocio](decisions.md) y las [técnicas](technical.md). · [English](evolution.en.md)
 
 ## Tabla de posiciones
 

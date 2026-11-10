@@ -1,119 +1,94 @@
-# Decisiones de diseño
+# Decisiones de negocio
 
-Por qué el proyecto está hecho como está. Cómo levantarlo está en el [README](../README.md). · [English](decisions.en.md)
+Qué hace la API y por qué, visto desde quien la usa. Las decisiones técnicas están en [technical.md](technical.md), cómo crecería el sistema en [evolution.md](evolution.md) y cómo levantarlo en el [README](../README.md). · [English](decisions.en.md)
 
-## Arquitectura
+- [Supuestos sobre el enunciado](#supuestos-sobre-el-enunciado): lenguaje, autenticación, moneda y datos provistos.
+- [Portfolio](#portfolio): valor total, pesos disponibles y rendimientos.
+- [Órdenes](#órdenes): tipos, rechazos y cancelación.
+- [Transferencias](#transferencias): depósitos y retiros de pesos.
+- [Búsqueda y listados](#búsqueda-y-listados): instrumentos y órdenes del usuario.
+- [Idempotencia](#idempotencia): qué garantiza un reintento.
 
-El sistema tiene dos mitades con necesidades distintas, y cada una usa el estilo que le sirve. Enviar y cancelar órdenes, o mover pesos, es un problema de reglas (estados, rechazos, saldo), así que se modela con DDD. El portfolio y la búsqueda son lecturas: se calculan a partir de los datos, sin pasar por el modelo de dominio.
+## Supuestos sobre el enunciado
 
-- **Escritura (DDD):** la orden y la transferencia son agregados que deciden su propio estado (una orden solo se cancela desde `NEW`, un retiro sin fondos queda `REJECTED`), y el saldo se valida con el usuario bloqueado, para que dos operaciones simultáneas no gasten el mismo dinero.
-- **Lectura (proyección):** el portfolio se recalcula desde las transferencias y las órdenes ejecutadas, con costo promedio exacto.
-- **Sin capa de dominio aislada:** las entidades JPA son el modelo. Separarlas de Spring agregaría puertos y mappers sin beneficio a este tamaño.
-- **Dos módulos:** `market` (instrumentos y precios) y `trading` (usuarios, transferencias, órdenes y portfolio). `trading` usa `market`, nunca al revés.
+Donde el enunciado deja algo abierto, o donde este proyecto se aparta de él, la decisión queda acá.
 
-## Base de datos
-
-El esquema provisto es la versión 1. Al arrancar, la aplicación toma cualquier base sin historial como versión 1 y aplica las migraciones pendientes (Flyway), así que la base local, los tests y la base provista siguen el mismo camino. Hibernate solo valida que las entidades coincidan con las tablas.
-
-- **Consecuencia:** el primer arranque contra la base provista la modifica: agrega índices y columnas, mueve los movimientos de pesos de `orders` a la tabla nueva `transfers` (V5, ver [Transferencias](#transferencias)) y crea la tabla `flyway_schema_history`.
-- **Migraciones** en `src/main/resources/db/migration`. `db/01-database.sql` queda como el estado provisto: la base local y la de tests lo cargan al crearse.
-- **Misma versión que la base provista:** Postgres 18.6 en la base local y en los tests, para que lo que se prueba sea lo que corre.
-
-## Dinero
-
-Todo importe es un `Money` (moneda + monto), nunca un número suelto. Hoy solo hay pesos (ARS), como pide el enunciado, pero el modelo admite otras monedas sin cambiar ninguna firma.
-
-- **Precisión:** `BigDecimal` en todos los cálculos. Se redondea una sola vez, al responder, a los decimales de la moneda (half-even).
-- **Sin mezclas:** combinar monedas distintas es un error, nunca una conversión implícita.
-- **Base de datos:** las columnas de precio no guardan la moneda y se leen como ARS. Para soportar otra moneda habría que agregar esa columna.
-
-## Búsqueda de instrumentos
-
-Busca el texto en el ticker o en el nombre, sin distinguir mayúsculas ni acentos ("compania" encuentra "Compañía"), y ordena por ticker. Devuelve una página, no la lista entera.
-
-- El peso no aparece: es la caja de la cuenta, no un activo que se compre.
-- Los tipos se exponen en inglés (`STOCK`, `CURRENCY`). Un converter traduce los valores de la base (`ACCIONES`, `MONEDA`), así el vocabulario de la tabla no se filtra al modelo.
-- `%` y `_` se buscan como texto literal, no como comodines.
-- Es una proyección directa a la respuesta. No hay reglas que proteger, así que no pasa por un servicio.
-- **Acentos:** la migración V6 activa las extensiones `unaccent` y `pg_trgm` (ambas *trusted*: las puede crear el dueño de la base, sin superusuario) y la búsqueda compara el texto sin acentos y en minúsculas. `unaccent` solo es `STABLE` porque lee un diccionario, y un índice exige una función `IMMUTABLE`; por eso hay un envoltorio `immutable_unaccent` que fija el diccionario por nombre, el patrón habitual.
-- **Índices:** un `LIKE '%texto%'` no puede usar un índice común, así que hay índices GIN trigram sobre el ticker y el nombre sin acentos. La consulta repite esa expresión exacta; con solo 66 instrumentos el planificador puede preferir recorrer la tabla, pero el índice queda disponible para cuando crezca.
-- **Paginación:** `page` (desde 0) y `size` (20 por defecto, máximo 100; uno mayor se recorta a 100). La respuesta es `{"content": [...], "page": {"size", "number", "totalElements", "totalPages"}}`, la forma estable de Spring Data, no la interna de `PageImpl`. El orden es fijo y un `sort` del cliente se ignora. Rige también para el listado de órdenes.
+- **Java en lugar de Node.js:** el enunciado pide Node.js; la empresa pidió hacerlo en Java, así que es Java 21 con Spring Boot.
+- **Sin autenticación:** el enunciado no la pide. El usuario viaja en el cuerpo o en la ruta y nada verifica que sea quien llama.
+- **Solo pesos:** todos los importes son ARS, como pide el enunciado. El modelo admite otras monedas, pero ninguna regla las usa.
+- **El seed se toma como está:** la orden 11 vende 30 BMA con 20 en cartera, y el portfolio lo muestra como una posición de −10 (un corto, que gana si el precio baja). Se evaluó permitir ventas en corto con una cuenta de margen y se descartó: el enunciado pide validar que el usuario tenga las acciones, y además requeriría préstamo de títulos y garantías.
+- **Una cuenta por usuario:** la cuenta es una columna de `users`. Los cotitulares quedan para más adelante ([evolución](evolution.md#cuentas-con-cotitulares)).
 
 ## Portfolio
 
-Se calcula a partir de las transferencias completadas, que mueven pesos, y de las órdenes del usuario recorridas en orden cronológico: las ejecutadas mueven pesos y acciones, y las abiertas (`NEW`) solo los reservan. Las transferencias no necesitan ese orden porque solo suman o restan pesos.
+Se calcula en cada consulta a partir de los depósitos y retiros completados y de las órdenes del usuario: las ejecutadas (`FILLED`) mueven pesos y acciones, y las abiertas (`NEW`) solo los reservan. Las posiciones salen ordenadas por ticker.
 
-- **Pesos disponibles:** el cash menos lo comprometido en compras límite abiertas, porque eso ya no se puede usar para operar. El valor total sí lo incluye, porque sigue siendo del usuario.
-- **Rendimiento:** el total se mide contra el costo promedio exacto, que no cambia con una venta parcial. El diario compara `close` con `previousClose`. Ambos van en porcentaje.
-- **El seed vende más de lo que tiene:** la orden 11 vende 30 BMA con 20 en cartera. El portfolio lo muestra como una posición de −10 (un corto, que gana si el precio baja) para coincidir con las órdenes. Se evaluó permitir ventas en corto con una cuenta de margen y se descartó: el enunciado pide validar que el usuario tenga las acciones, y además requeriría préstamo de títulos y garantías.
+- **Pesos disponibles:** el cash menos lo que reservan las compras límite abiertas, porque eso ya no se puede usar para operar. El valor total sí lo incluye, porque sigue siendo del usuario.
+- **Rendimiento total:** se mide contra el costo promedio exacto, que una venta parcial no cambia. En un corto es positivo cuando el precio bajó.
+- **Rendimiento diario:** compara `close` con `previousClose`. Los dos rendimientos van en porcentaje, con 2 decimales.
 - **Sin precio:** si un instrumento en cartera no tiene market data, su valor y sus rendimientos vienen en `null` y no suman al total.
-- **Evolución hacia cuentas:** hoy la cuenta es una columna de `users`. Para cotitulares haría falta una tabla `accounts` con sus titulares, las órdenes por cuenta y el bloqueo sobre la cuenta. No se implementa porque nada del enunciado lo pide.
 
 ## Órdenes
 
-Una orden de mercado se ejecuta al último `close` y queda `FILLED`. Una límite queda `NEW` a su precio y reserva pesos o acciones hasta que se cancela: el mercado no se simula, así que nada la cruza contra un precio. Con un monto en pesos se compran solo acciones enteras. El `side` es `BUY` o `SELL`: mover pesos es una [transferencia](#transferencias).
+Una orden de mercado (`MARKET`) se ejecuta al último `close` y queda `FILLED`. Una límite (`LIMIT`) queda `NEW` a su precio y reserva pesos o acciones hasta que se cancela: el mercado no se simula, así que nada la cruza contra un precio. Una orden por monto en pesos compra solo acciones enteras. El `side` es `BUY` o `SELL`, y la hora (`datetime`) se devuelve en UTC (ISO-8601).
 
-- **Dos tipos de error:** un pedido que no tiene sentido (JSON roto, cantidad y monto a la vez, una orden límite sin precio, un `side` como `CASH_IN`) es un 400 y no guarda nada. Una orden válida que el usuario no puede cubrir se guarda como `REJECTED` y responde 201 con su `rejectionReason` (`INSUFFICIENT_CASH`, `INSUFFICIENT_SHARES` contando las ventas abiertas, `AMOUNT_BELOW_ONE_SHARE` o `NO_MARKET_DATA`), porque así la describe el enunciado: el mercado la rechaza y queda en el historial. Un monto que no alcanza para una acción es un rechazo y no un 400, porque depende del precio de ese momento.
-- **El motivo se guarda** en la columna `rejectionReason` (migración V3), para poder auditar los rechazos; es `null` en las demás órdenes.
-- **Un usuario a la vez:** el envío bloquea la fila del usuario antes de calcular su saldo, así dos órdenes simultáneas no gastan los mismos pesos. La cancelación bloquea la orden, para que dos cancelaciones no la vean abierta a la vez.
-- **Hora en UTC:** `datetime` es un instante (`timestamptz`) y la API lo devuelve en ISO-8601 UTC (`2026-11-10T14:30:00Z`). Las órdenes provistas tenían la hora de Buenos Aires sin zona (de 11:13 a 16:11, el horario del mercado local); la migración V4 las convirtió una sola vez, sin cambiar su orden. La hora sale de un único `Clock`, que los tests fijan.
-- **Listado:** `GET /users/{userId}/orders` devuelve las órdenes del usuario, las más nuevas primero (fecha y, a igual fecha, id descendente), paginadas, con el mismo formato que una orden sola. `status` opcional filtra por estado; un valor que no existe es un 400 y un usuario desconocido, un 404.
-- **Cancelar no verifica al dueño:** no se comprueba que la orden sea de quien lo pide, porque no hay autenticación, y un `userId` enviado por el cliente solo parecería seguridad.
+- **400 o `REJECTED`:** un pedido que no tiene sentido (JSON roto, una cantidad fraccionaria, cantidad y monto a la vez o ninguno, una límite sin precio o una de mercado con precio, un `side` como `CASH_IN`, operar el instrumento de pesos) es un 400 y no guarda nada. Un usuario o un instrumento que no existe es un 404.
+- **Rechazos:** una orden válida que el usuario no puede cubrir se guarda `REJECTED` y responde 201, porque así la describe el enunciado: el mercado la rechaza y queda en el historial. Los motivos son `INSUFFICIENT_CASH`, `INSUFFICIENT_SHARES` (contando las ventas abiertas), `AMOUNT_BELOW_ONE_SHARE` (depende del precio del momento, por eso no es un 400) y `NO_MARKET_DATA`.
+- **El motivo se guarda** en `rejectionReason`, para poder auditar los rechazos; es `null` en las demás órdenes.
+- **Cancelar:** solo una orden `NEW`; cualquier otra responde 409 `ORDER_NOT_CANCELLABLE`. Cancelar libera lo que la orden reservaba.
+- **Cancelar no verifica al dueño:** sin autenticación, un `userId` enviado por el cliente solo parecería seguridad.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> FILLED: MARKET que se puede cubrir
+    [*] --> NEW: LIMIT que se puede cubrir
+    [*] --> REJECTED: no se puede cubrir o no hay precio
+    NEW --> CANCELLED: el usuario la cancela
+    note right of NEW
+        Nunca pasa a FILLED:
+        el mercado no se simula
+    end note
+    FILLED --> [*]
+    REJECTED --> [*]
+    CANCELLED --> [*]
+```
 
 ## Transferencias
 
-Un depósito o un retiro de pesos es una transferencia, con su propia tabla (`transfers`), su agregado y su endpoint (`/users/{userId}/transfers`). El enunciado permite modelarlas como órdenes `CASH_IN`/`CASH_OUT` y calcular el cash desde la tabla `orders`; este proyecto se aparta de eso a propósito, porque una transferencia no tiene instrumento, precio ni mercado. Como orden había que llenar esas columnas con valores de relleno (el instrumento ARS, precio 1, el monto en `size`) y cada regla de órdenes tenía que excluir esos `side`.
+Un depósito o un retiro de pesos es una transferencia, con su endpoint propio (`/users/{userId}/transfers`), no una orden. El enunciado permite modelarlas como órdenes; este proyecto se aparta a propósito, porque una transferencia no tiene instrumento, precio ni mercado, y como orden había que llenar esas columnas con valores de relleno y excluirla de cada regla de órdenes.
 
-- **Mismo vocabulario:** el tipo de una transferencia es `CASH_IN` o `CASH_OUT`, los nombres del enunciado, así la migración copia el `side` tal cual.
-- **Migración V5:** crea `transfers`, mueve ahí los movimientos de pesos de `orders` con su hora (`FILLED` pasa a `COMPLETED`, `REJECTED` sigue `REJECTED`, y cualquier otro estado frena la migración en vez de adivinar), los borra de `orders` y limita `side` a `BUY` y `SELL`. Corre en una sola transacción, y el portfolio del seed no cambia.
-- **Retiros rechazados:** un retiro mayor a los pesos disponibles (las compras límite abiertas siguen reservando lo suyo) se guarda `REJECTED` con `rejectionReason` `INSUFFICIENT_CASH` y responde 201, igual que una orden rechazada. Un monto que no es positivo o tiene más de 2 decimales es un 400 y no guarda nada.
-- **El mismo bloqueo:** un retiro bloquea la fila del usuario igual que una orden, así un retiro y una compra simultáneos no gastan los mismos pesos.
+- **Mismo vocabulario:** el tipo es `CASH_IN` o `CASH_OUT`, los nombres del enunciado. Los movimientos de pesos del seed pasaron a ser transferencias, con su hora, y el portfolio no cambió.
+- **Retiros rechazados:** un `CASH_OUT` mayor a los pesos disponibles (las compras límite abiertas siguen reservando lo suyo) se guarda `REJECTED` con `rejectionReason` `INSUFFICIENT_CASH` y responde 201, igual que una orden rechazada.
+- **400:** un monto que no es positivo o tiene más de 2 decimales no guarda nada.
 - **Historial:** `GET /users/{userId}/transfers` las devuelve de la más nueva a la más vieja. Una transferencia de otro usuario responde 404, igual que una que no existe.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> COMPLETED: CASH_IN
+    [*] --> COMPLETED: CASH_OUT dentro de los pesos disponibles
+    [*] --> REJECTED: CASH_OUT mayor a los pesos disponibles
+    COMPLETED --> [*]
+    REJECTED --> [*]
+```
+
+## Búsqueda y listados
+
+`GET /instruments?query=` busca el texto en el ticker o en el nombre, sin distinguir mayúsculas ni acentos ("compania" encuentra "Compañía"), y ordena por ticker. Devuelve una página, no la lista entera.
+
+- **El peso no aparece:** es la caja de la cuenta, no un activo que se compre.
+- **Texto literal:** `%` y `_` se buscan como texto, no como comodines. Un `query` vacío o de más de 100 caracteres es un 400.
+- **Tipos en inglés:** `STOCK` y `CURRENCY`, aunque la base guarde `ACCIONES` y `MONEDA`.
+- **Paginación:** `page` (desde 0) y `size` (20 por defecto, máximo 100; uno mayor se recorta a 100). La respuesta es `{"content": [...], "page": {"size", "number", "totalElements", "totalPages"}}`. El orden es fijo y un `sort` del cliente se ignora.
+- **Órdenes del usuario:** `GET /users/{userId}/orders` las devuelve de la más nueva a la más vieja (a igual hora, la de id mayor primero), con la misma paginación y el mismo formato que una orden sola. `status` opcional filtra por estado; un estado que no existe es un 400 y un usuario desconocido, un 404.
 
 ## Idempotencia
 
-Un cliente que reintenta después de un timeout no sabe si su pedido llegó, y en un broker el reintento no puede comprar ni retirar dos veces. `POST /orders` y `POST /users/{userId}/transfers` aceptan un header opcional `Idempotency-Key`, con la semántica del draft de la IETF "The Idempotency-Key HTTP Header Field": el primer pedido con una clave se procesa y la clave se guarda (tabla `idempotency_keys`, migración V7); un reintento con la misma clave devuelve la misma orden o transferencia, con `Idempotent-Replayed: true`, en lugar de crear otra. Sin el header nada cambia.
+Un cliente que reintenta después de un timeout no sabe si su pedido llegó, y en un broker un reintento no puede comprar ni retirar dos veces. `POST /orders` y `POST /users/{userId}/transfers` aceptan un header opcional `Idempotency-Key`, con la semántica del draft de la IETF "The Idempotency-Key HTTP Header Field". Sin el header nada cambia.
 
-- **Sobre el bloqueo del usuario:** la clave se busca y se guarda en la misma transacción que ya bloquea la fila del usuario, así que un reintento simultáneo espera al primero y encuentra su clave. Por eso no hace falta el 409 que el draft prevé para un pedido todavía en curso; la restricción única (usuario, operación, clave) queda como red de seguridad.
-- **El reintento devuelve el recurso como está ahora** (una orden cancelada después aparece `CANCELLED`), no una copia de la primera respuesta: al cliente le importa qué quedó y en qué estado, y guardar respuestas duplicaría lo que ya está en `orders` y `transfers`. Una orden o un retiro `REJECTED` también es un resultado: el reintento lo devuelve rechazado, sin volver a decidir. Un pedido que falla (400, 404) no guarda nada y su clave sigue libre.
-- **La misma clave con otro pedido** es un 422 `IDEMPOTENCY_KEY_REUSED` y no guarda nada. Se compara un SHA-256 del pedido ya interpretado, no de los bytes, así que el orden de los campos, los espacios o `1000` contra `1000.00` no lo cambian.
-- **El punto débil es que la clave la pone el cliente:** tiene que generarla, guardarla y reenviar la misma; si la pierde, el reintento es una orden nueva. Se evaluó una huella (*fingerprint*) del lado del servidor, armada con los campos de la operación (usuario, instrumento, lado, cantidad o monto y precio dentro de una ventana corta): no le pide nada al cliente, pero también bloquearía dos órdenes idénticas legítimas. Se eligió la clave del cliente y la huella queda como posible complemento. No es el hash de arriba, que solo verifica que una clave reusada traiga el mismo pedido.
-- **Retención:** una clave vale al menos 24 horas; una tarea horaria borra las vencidas. Es por usuario y por operación (enviar una orden o hacer una transferencia), de 1 a 64 caracteres de `[A-Za-z0-9._:-]`, con o sin comillas (`"abc"` es `abc`), porque el draft la define como un string de structured fields.
-
-## Errores
-
-Toda respuesta de error es un problem detail (RFC 9457) con un `code` estable y el `requestId` del pedido. El dominio lanza excepciones que llevan su `code` pero no saben qué es HTTP; un único `@RestControllerAdvice` convierte cada categoría en un estado. Así el cliente decide por el `code`, y soporte encuentra los logs con el `requestId`.
-
-- **Categorías:** `NotFoundException` (404), `InvalidRequestException` (400), `ConflictException` (409) y `UnprocessableContentException` (422: el pedido contradice uno anterior, como una clave de idempotencia reusada; no es un 409 porque reintentar no lo arregla, hay que cambiar el pedido), todas con un `ErrorCode` (`ORDER_NOT_FOUND`, `ORDER_NOT_CANCELLABLE`, `SIZE_OR_AMOUNT_REQUIRED`...). Un código nunca se renombra ni cambia de significado; el texto sí puede cambiar.
-- **Validación:** un 400 `VALIDATION_FAILED` con una lista `errors` de `{field, message}`, para que el cliente marque el campo. Un JSON roto es `MALFORMED_REQUEST` y no repite el mensaje de Jackson.
-- **Errores del framework** (método no permitido, ruta inexistente) conservan su estado y suman el `requestId`, sin `code`.
-- **Un 500 nunca filtra detalles:** responde `INTERNAL_ERROR` con un texto genérico que pide citar el `requestId`; el mensaje y el stack quedan solo en el log, en nivel ERROR.
-
-## Logs
-
-Cada request lleva un id (`X-Request-Id`) que aparece en todas sus líneas de log y se devuelve en la respuesta, para seguir un pedido de punta a punta. Se registran los eventos de negocio a nivel INFO (llegan con las órdenes); nunca emails ni secretos.
-
-- **Id de request:** se toma el que manda el cliente solo si son 1 a 64 caracteres de `[A-Za-z0-9._-]`; si no, se genera un UUID. Se valida para que un cliente no pueda inyectar saltos de línea o texto falso en los logs.
-- **Local:** texto legible, con el id entre corchetes en cada línea.
-- **Plataforma de logs:** el perfil `json` emite JSON en formato ECS (el soporte de Spring Boot), con el id como campo `requestId`.
-- **Sin tracing distribuido:** con un solo servicio no aporta lo que cuesta.
-
-## Despliegue
-
-La aplicación se despliega como una imagen de contenedor. Está en capas para que un cambio de código solo reconstruya la última y el resto salga de la caché.
-
-- **Capas:** dependencias, loader, snapshots y código, de la que menos cambia a la que más.
-- **Runtime:** solo JRE, con un usuario sin privilegios y heap según el límite de memoria del contenedor.
-- **Configuración:** solo por variables de entorno (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`); la imagen no lleva secretos.
-- **Probes:** `/actuator/health/liveness` y `/actuator/health/readiness` para el orquestador, en el puerto de gestión (ver [Observabilidad](#observabilidad)).
-- **CI:** la imagen se construye en cada PR y se publica desde `main`. Se escanea con Trivy y falla ante vulnerabilidades críticas con arreglo disponible.
-- **Posible mejora:** un runtime recortado con jlink para reducir el tamaño de la imagen.
-
-## Observabilidad
-
-La aplicación publica sus métricas en formato Prometheus (`/actuator/prometheus`), el estándar de facto para scraping, sin código propio de métricas.
-
-- **Qué se mide:** JVM, peticiones HTTP (`http.server.requests`), pool de conexiones Hikari y Tomcat, todos con el tag `application=brokerage-api`.
-- **Puerto de gestión:** Actuator se sirve en el 8081 y la API en el 8080. Así las métricas y los probes no quedan expuestos a internet por el ingress de la API; solo los alcanza quien está dentro de la red.
-- **Liveness y readiness:** liveness dice si el proceso debe reiniciarse y readiness si puede recibir tráfico (incluye la base). Liveness no depende de la base: una caída de la base no debe provocar el reinicio del pod.
-- **Negocio:** las métricas de órdenes llegan con el paso de logging de órdenes.
+- **Qué garantiza:** un reintento con la misma clave devuelve la misma orden o transferencia, como está ahora (una orden cancelada después aparece `CANCELLED`), en lugar de crear otra. Un rechazo también es un resultado: vuelve `REJECTED`, sin decidir de nuevo. Un pedido que falla (400, 404) no guarda nada y su clave sigue libre.
+- **Cómo se reconoce:** el reintento responde 201 con `Idempotent-Replayed: true`.
+- **Otro pedido con la misma clave** es un 422 `IDEMPOTENCY_KEY_REUSED` y no guarda nada. Se compara el pedido ya interpretado, así que el orden de los campos, los espacios o `1000` contra `1000.00` no lo cambian.
+- **Alcance:** la clave vale al menos 24 horas, por usuario y por operación (enviar una orden o hacer una transferencia). Son 1 a 64 caracteres de `[A-Za-z0-9._:-]`, con o sin comillas (`"abc"` es `abc`), porque el draft la define como un string de structured fields.
+- **El punto débil es que la clave la pone el cliente:** tiene que generarla, guardarla y reenviar la misma; si la pierde, el reintento es una orden nueva. Se evaluó una huella del lado del servidor, armada con los campos de la operación (usuario, instrumento, lado, cantidad o monto y precio, dentro de una ventana corta): no le pide nada al cliente, pero también bloquearía dos órdenes idénticas legítimas (comprar 10 PAMP dos veces seguidas). Se eligió la clave del cliente, y la huella queda como posible complemento.

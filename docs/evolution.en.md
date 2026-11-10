@@ -1,6 +1,6 @@
 # Evolution
 
-How the system would grow as users, volume and demands increase. What is already built, and why, is in [decisions.en.md](decisions.en.md). · [Español](evolution.md)
+How the system would grow as users, volume and demands increase. What is already built, and why, is in the [business](decisions.en.md) and [technical](technical.en.md) decisions. · [Español](evolution.md)
 
 ## Positions table
 

@@ -10,10 +10,11 @@ rules apply to any agent working in this repository.
   into `main` with a merge commit. Never commit straight to `main`.
 - An agent proposes a design before writing code when there is more than one
   reasonable option, and waits for the human's decision.
-- Every design decision and assumption is recorded in `docs/decisions.md` (and its
-  English twin) with its reason, one paragraph and a few bullets per topic. The
-  README only explains how to run the project. A pull request description
-  explains what changed and why.
+- Every decision is recorded with its reason, one paragraph and a few bullets
+  per topic: business decisions and assumptions in `docs/decisions.md`,
+  technical decisions in `docs/technical.md`, each with its English twin
+  (`.en.md`). The README only explains how to run the project. A pull
+  request description explains what changed and why.
 - Commit messages follow Conventional Commits (`feat:`, `fix:`, `docs:`, ...).
 
 ## Domain rules
@@ -29,7 +30,7 @@ rules apply to any agent working in this repository.
 - The schema may be changed or extended when it brings a clear benefit
   (performance, integrity). Every change is a Flyway migration in
   `src/main/resources/db/migration` (`db/01-database.sql` is the provided
-  state, version 1, and is never edited) and is justified in `docs/decisions.md`.
+  state, version 1, and is never edited) and is justified in `docs/technical.md`.
 - Hibernate validates the schema and never generates or alters it.
 
 ## Secrets

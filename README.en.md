@@ -4,7 +4,11 @@
 
 Brokerage REST API: portfolio, instrument search, market and limit orders, and peso deposits and withdrawals. Java 21 and Spring Boot 4. · [Español](README.md)
 
-The design decisions and the reason for each one are in [docs/decisions.en.md](docs/decisions.en.md).
+## Documentation
+
+- [Business decisions](docs/decisions.en.md): what the API does and why.
+- [Technical decisions](docs/technical.en.md): how it is built and why, with diagrams.
+- [Evolution](docs/evolution.en.md): how the system would grow.
 
 ## Running it
 
