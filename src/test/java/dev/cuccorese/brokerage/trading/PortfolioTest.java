@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
-/** Runs against the provided seed; the expected numbers are worked out in the README. */
+/** Runs against the provided seed, so the expected values are the seed user's real portfolio. */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)

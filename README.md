@@ -32,6 +32,7 @@ Usan un Postgres descartable (Testcontainers) con los mismos datos, así que nec
 | Método | Ruta | Qué hace |
 |---|---|---|
 | GET | `/instruments?query=banco` | Busca instrumentos por ticker o nombre |
+| GET | `/users/{userId}/portfolio` | Valor total, pesos disponibles y posiciones |
 
 Hay ejemplos listos para ejecutar en [`http/`](http/) (REST Client de VS Code o IntelliJ).
 

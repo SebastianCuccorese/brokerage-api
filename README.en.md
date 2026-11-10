@@ -32,6 +32,7 @@ They use a throwaway Postgres (Testcontainers) with the same data, so they need 
 | Method | Path | What it does |
 |---|---|---|
 | GET | `/instruments?query=banco` | Searches instruments by ticker or name |
+| GET | `/users/{userId}/portfolio` | Total value, available pesos and positions |
 
 Ready-to-run examples live in [`http/`](http/) (VS Code REST Client or IntelliJ).
 

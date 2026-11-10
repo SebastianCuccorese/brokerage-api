@@ -35,3 +35,13 @@ Searches the text in the ticker or the name, case-insensitive, ordered by ticker
 - `%` and `_` are searched as literal text, not as wildcards.
 - It is a direct projection to the response. There are no rules to protect, so it skips the service layer.
 - Possible improvement: ignore accents ("compania" would find "Compañía") with Postgres's `unaccent` extension.
+
+## Portfolio
+
+It is computed by walking the user's orders in chronological order: filled ones move pesos and shares, open ones (`NEW`) only reserve them.
+
+- **Available pesos:** cash minus what open limit buys commit, because that can no longer be used to trade. The total value does include it, because it still belongs to the user.
+- **Returns:** the total return is measured against the exact average cost, which a partial sale does not change. The daily return compares `close` with `previousClose`. Both are percentages.
+- **The seed sells more than it holds:** order 11 sells 30 BMA with 20 held. The portfolio shows it as a −10 position (a short, which gains when the price falls) to match the orders. Allowing short selling through a margin account was considered and discarded: the statement asks to check that the user holds the shares, and it would also need securities lending and collateral.
+- **No price:** if a held instrument has no market data, its value and returns are `null` and do not add to the total.
+- **Towards accounts:** today the account is a column of `users`. Co-owners would need an `accounts` table with its holders, orders per account and the lock on the account. It is not built because nothing in the statement asks for it.
