@@ -56,7 +56,7 @@ They use a throwaway Postgres (Testcontainers) with the same data, so they need 
 | GET | `/users/{userId}/transfers` | The user's transfers, newest first |
 | GET | `/users/{userId}/transfers/{transferId}` | Returns one of the user's transfers |
 
-`POST /orders` takes an optional `Idempotency-Key` header: a retry with the same key returns the same order instead of placing another ([Idempotency](docs/decisions.en.md#idempotency)).
+`POST /orders` and `POST /users/{userId}/transfers` take an optional `Idempotency-Key` header: a retry with the same key returns the same order or transfer instead of creating another ([Idempotency](docs/decisions.en.md#idempotency)).
 
 Interactive API docs: <http://localhost:8080/swagger-ui.html>
 
