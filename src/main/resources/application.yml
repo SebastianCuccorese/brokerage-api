@@ -21,6 +21,10 @@ spring:
         jdbc:
           time_zone: UTC
 
+logging:
+  pattern:
+    correlation: "[%X{requestId:-}] "
+
 management:
   endpoints:
     web:

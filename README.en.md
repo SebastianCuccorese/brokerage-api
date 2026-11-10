@@ -17,7 +17,7 @@ docker compose up -d
 
 **With the provided database:** copy `.env.example` to `.env`, fill in the connection and run `./mvnw spring-boot:run`. `.env` is in `.gitignore` and never committed. When it exists, it takes precedence over the local database.
 
-The API listens on `http://localhost:8080`.
+The API listens on `http://localhost:8080`. Logs are readable text; with `--spring.profiles.active=json` they are JSON (ECS), for a log platform.
 
 ## Tests
 
