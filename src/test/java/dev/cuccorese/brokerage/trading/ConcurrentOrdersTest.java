@@ -104,7 +104,8 @@ class ConcurrentOrdersTest {
         PlaceOrder buyForEverything = new PlaceOrder(user, PAMP, OrderSide.BUY, OrderType.MARKET, null, everything, null);
 
         List<String> outcomes = atOnce(List.of(
-                () -> "withdrawal " + transfers.make(user, TransferType.CASH_OUT, everything).getStatus(),
+                () -> "withdrawal " + transfers.make(new MakeTransfer(user, TransferType.CASH_OUT, everything),
+                        Optional.empty()).resource().getStatus(),
                 () -> "buy " + orders.place(buyForEverything, Optional.empty()).resource().getStatus()));
 
         assertThat(outcomes).isIn(
@@ -124,5 +125,19 @@ class ConcurrentOrdersTest {
         assertThat(results).extracting(result -> result.resource().getId()).containsOnly(results.getFirst().resource().getId());
         assertThat(results).extracting(IdempotentResult::replayed).containsExactlyInAnyOrder(false, true);
         assertThat(accounts.orderCount(user)).isEqualTo(1);
+    }
+
+    /** 1000 pesos cover both withdrawals, so only the key can stop the second one. */
+    @Test
+    void twoWithdrawalsAtOnceWithTheSameKeyMakeOneTransfer() throws Exception {
+        int user = accounts.fundedUser(1_000);
+        MakeTransfer withdrawal = new MakeTransfer(user, TransferType.CASH_OUT, Money.of(Currencies.ARS, new BigDecimal("400")));
+        Optional<IdempotencyKey> key = Optional.of(new IdempotencyKey("retry-2"));
+
+        List<IdempotentResult<Transfer>> results = twiceAtOnce(() -> transfers.make(withdrawal, key));
+
+        assertThat(results).extracting(result -> result.resource().getId()).containsOnly(results.getFirst().resource().getId());
+        assertThat(results).extracting(IdempotentResult::replayed).containsExactlyInAnyOrder(false, true);
+        assertThat(accounts.transferCount(user)).isEqualTo(2);
     }
 }

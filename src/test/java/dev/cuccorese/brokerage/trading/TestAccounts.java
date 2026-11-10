@@ -3,6 +3,7 @@ package dev.cuccorese.brokerage.trading;
 import dev.cuccorese.brokerage.shared.Currencies;
 import dev.cuccorese.brokerage.shared.Money;
 import java.math.BigDecimal;
+import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
@@ -63,6 +64,7 @@ class TestAccounts {
     }
 
     void deposit(int userId, int pesos) {
-        transfers.make(userId, TransferType.CASH_IN, Money.of(Currencies.ARS, BigDecimal.valueOf(pesos)));
+        transfers.make(new MakeTransfer(userId, TransferType.CASH_IN, Money.of(Currencies.ARS, BigDecimal.valueOf(pesos))),
+                Optional.empty());
     }
 }
