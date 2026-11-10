@@ -18,7 +18,7 @@ Cómo está construido el proyecto y por qué. Qué hace la API, y por qué, est
 El sistema tiene dos mitades con necesidades distintas, y cada una usa el estilo que le sirve. Enviar y cancelar órdenes, o mover pesos, es un problema de reglas (estados, rechazos, saldo), así que se modela con DDD. El portfolio, la búsqueda y los listados son lecturas: se calculan a partir de los datos, sin reglas que proteger.
 
 - **Escritura (DDD):** `Order` y `Transfer` son agregados que deciden su propio estado (`Order.place`, `Order.cancel`, `Transfer.cashOut`). Deciden contra un `Ledger`, el cash y las posiciones del usuario reconstruidos desde las transferencias y las órdenes; `Position` lleva el costo promedio.
-- **Lectura (proyección):** el portfolio es el mismo `Ledger` valuado al último precio. La búsqueda proyecta la consulta directo a `InstrumentView`, sin servicio; el listado de órdenes pagina con Spring Data.
+- **Lectura (proyección):** el portfolio es el mismo `Ledger` valuado al último precio. La búsqueda proyecta la consulta directo a `InstrumentView`, sin servicio; el listado de órdenes pagina con Spring Data, y las páginas se serializan con su forma estable (`{content, page}`), no con los internos de `PageImpl`.
 - **Sin capa de dominio aislada:** las entidades JPA son el modelo. Separarlas de Spring agregaría puertos y mappers sin beneficio a este tamaño.
 - **Módulos:** `market` (instrumentos y precios), `trading` (usuarios, transferencias, órdenes y portfolio) y `shared` (dinero, errores, request id y, en `shared.idempotency`, la idempotencia). `trading` usa `market` y `shared`, `market` usa `shared`, y `shared` no usa a ninguno.
 
@@ -184,7 +184,7 @@ El esquema provisto es la versión 1. Flyway toma cualquier base sin historial c
 | V2 | Índices para las órdenes por usuario y estado, y para el último precio por instrumento. |
 | V3 | Columna `rejectionReason` en `orders`. |
 | V4 | `orders.datetime` pasa a `timestamptz`, leyendo los valores provistos como hora de Buenos Aires. |
-| V5 | Tabla `transfers`; mueve los `CASH_IN`/`CASH_OUT` de `orders` (`FILLED` a `COMPLETED`, `REJECTED` sigue igual, cualquier otro estado frena la migración) y limita `side` a `BUY` y `SELL`. |
+| V5 | Tabla `transfers`; mueve los `CASH_IN`/`CASH_OUT` de `orders` (`FILLED` a `COMPLETED`, `REJECTED` sigue igual, cualquier otro estado frena la migración) y limita `side` a `BUY` y `SELL`, todo en una sola transacción. |
 | V6 | Extensiones `unaccent` y `pg_trgm`, `immutable_unaccent` e índices trigram de búsqueda. |
 | V7 | Tabla `idempotency_keys`, con su restricción única y un índice por fecha para la purga. |
 
@@ -224,7 +224,7 @@ Cada request lleva un id que aparece en todas sus líneas de log, vuelve en la r
 
 - **Request id validado:** se toma el `X-Request-Id` del cliente solo si son 1 a 64 caracteres de `[A-Za-z0-9._-]`; si no, se genera un UUID. Así un cliente no puede inyectar saltos de línea ni texto falso en los logs.
 - **Formatos:** texto legible por defecto, con el id entre corchetes en cada línea; el perfil `json` emite JSON en formato ECS (el soporte de Spring Boot), con el id como campo `requestId`.
-- **Prometheus en el puerto de gestión:** Actuator se sirve en el 8081 y la API en el 8080, así métricas y probes no quedan expuestos por el ingress de la API. `/actuator/prometheus` publica JVM, peticiones HTTP, el pool Hikari y Tomcat, con el tag `application=brokerage-api`.
+- **Prometheus en el puerto de gestión:** Actuator se sirve en el 8081 y la API en el 8080, así métricas y probes no quedan expuestos por el ingress de la API. `/actuator/prometheus` publica JVM, peticiones HTTP, el pool Hikari y Tomcat, con el tag `application=brokerage-api`, sin código propio de métricas.
 - **Probes:** readiness incluye la base y liveness no: una caída de la base saca a la instancia del tráfico pero no la reinicia.
 - **Sin tracing distribuido ni eventos de negocio:** con un solo servicio el tracing no aporta lo que cuesta; los logs y métricas de órdenes y transferencias están en [evolución](evolution.md#métricas-y-logs-de-negocio).
 
