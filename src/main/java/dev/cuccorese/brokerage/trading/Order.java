@@ -92,8 +92,8 @@ public class Order {
 
     /**
      * A deposit recorded like the provided ones: a filled CASH_IN of the {@code cash} instrument
-     * whose size is the amount in pesos. Cash transfers have no endpoint, since the statement
-     * asks for buy and sell orders only, so nothing outside tests creates one yet.
+     * whose size is the amount in pesos. There is no endpoint for cash transfers yet, so
+     * only tests create one.
      */
     static Order deposit(Integer userId, Instrument cash, int pesos, Instant at) {
         Order order = new Order();
