@@ -1,0 +1,12 @@
+# brokerage-api
+
+API REST de un broker: portfolio, búsqueda de instrumentos y órdenes de mercado y límite. · [English](README.en.md)
+
+## Arquitectura
+
+El sistema tiene dos mitades con necesidades distintas, y cada una usa el estilo que le sirve. Enviar y cancelar órdenes es un problema de reglas (estados, rechazos, saldo), así que se modela con DDD. El portfolio y la búsqueda son lecturas: se calculan a partir de los datos, sin pasar por el modelo de dominio.
+
+- **Escritura (DDD):** la orden es un agregado que controla sus propias transiciones (solo se cancela desde `NEW`), y el saldo se valida con la cuenta bloqueada, para que dos órdenes simultáneas no gasten el mismo dinero.
+- **Lectura (proyección):** el portfolio se recalcula desde las órdenes ejecutadas, con costo promedio exacto.
+- **Sin capa de dominio aislada:** las entidades JPA son el modelo. Separarlas de Spring agregaría puertos y mappers sin beneficio a este tamaño.
+- **Dos módulos:** `market` (instrumentos y precios) y `trading` (cuentas, órdenes y portfolio). `trading` usa `market`, nunca al revés.
