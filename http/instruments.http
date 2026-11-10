@@ -3,5 +3,11 @@
 ### Search by ticker or name
 GET {{baseUrl}}/instruments?query=banco
 
+### Accents and case are ignored: finds "Compañía Introductora..."
+GET {{baseUrl}}/instruments?query=compania
+
+### Pages: 2 results per page, second page (size is capped at 100)
+GET {{baseUrl}}/instruments?query=banco&size=2&page=1
+
 ### A blank query is rejected (400)
 GET {{baseUrl}}/instruments?query=%20
