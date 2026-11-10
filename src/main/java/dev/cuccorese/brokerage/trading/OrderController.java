@@ -29,4 +29,9 @@ class OrderController {
     OrderView get(@PathVariable Integer orderId) {
         return OrderView.of(orders.get(orderId));
     }
+
+    @PostMapping("/{orderId}/cancel")
+    OrderView cancel(@PathVariable Integer orderId) {
+        return OrderView.of(orders.cancel(orderId));
+    }
 }

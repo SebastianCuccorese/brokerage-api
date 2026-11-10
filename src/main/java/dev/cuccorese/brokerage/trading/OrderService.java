@@ -42,6 +42,14 @@ public class OrderService {
         return orders.save(Order.place(request, instrument, lastClose, orders.ledgerOf(request.userId()), now));
     }
 
+    /** Locks the order so that two concurrent cancels cannot both see it open. */
+    @Transactional
+    public Order cancel(Integer orderId) {
+        Order order = orders.findWithLockById(orderId).orElseThrow(() -> new NotFoundException("Order", orderId));
+        order.cancel();
+        return order;
+    }
+
     @Transactional(readOnly = true)
     public Order get(Integer orderId) {
         return orders.findById(orderId).orElseThrow(() -> new NotFoundException("Order", orderId));

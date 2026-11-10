@@ -55,6 +55,10 @@ class OrdersTest {
         return mvc.get().uri("/users/{userId}/portfolio", userId).exchange();
     }
 
+    private MvcTestResult cancel(int orderId) {
+        return mvc.post().uri("/orders/{orderId}/cancel", orderId).exchange();
+    }
+
     private static int idOf(MvcTestResult result) {
         return JsonPath.read(new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8), "$.id");
     }
@@ -311,5 +315,46 @@ class OrdersTest {
     @Test
     void anUnknownOrderIsNotFound() {
         assertThat(mvc.get().uri("/orders/999999")).hasStatus(HttpStatus.NOT_FOUND);
+        assertThat(cancel(999999)).hasStatus(HttpStatus.NOT_FOUND)
+                .bodyJson().extractingPath("$.detail").isEqualTo("Order 999999 not found");
+    }
+
+    @Test
+    void cancellingAnOpenOrderReleasesItsCash() {
+        int user = accounts.fundedUser(10_000);
+        int orderId = idOf(place("""
+                {"userId": %d, "instrumentId": 47, "side": "BUY", "type": "LIMIT", "size": 10, "price": 900}
+                """.formatted(user)));
+
+        assertThat(cancel(orderId)).hasStatusOk()
+                .bodyJson().isLenientlyEqualTo("""
+                        {"id": %d, "status": "CANCELLED"}
+                        """.formatted(orderId));
+        assertThat(portfolio(user)).bodyJson().extractingPath("$.availableCash.amount").isEqualTo(10000.00);
+    }
+
+    @Test
+    void aFilledOrderCannotBeCancelled() {
+        int user = accounts.fundedUser(10_000);
+        int orderId = idOf(place("""
+                {"userId": %d, "instrumentId": 47, "side": "BUY", "type": "MARKET", "size": 1}
+                """.formatted(user)));
+
+        assertThat(cancel(orderId)).hasStatus(HttpStatus.CONFLICT)
+                .bodyJson().extractingPath("$.detail")
+                .isEqualTo("Order " + orderId + " is FILLED; only NEW orders can be cancelled");
+        assertThat(mvc.get().uri("/orders/{orderId}", orderId))
+                .bodyJson().extractingPath("$.status").isEqualTo("FILLED");
+    }
+
+    @Test
+    void aCancelledOrderCannotBeCancelledAgain() {
+        int user = accounts.fundedUser(10_000);
+        int orderId = idOf(place("""
+                {"userId": %d, "instrumentId": 47, "side": "BUY", "type": "LIMIT", "size": 1, "price": 900}
+                """.formatted(user)));
+        cancel(orderId);
+
+        assertThat(cancel(orderId)).hasStatus(HttpStatus.CONFLICT);
     }
 }

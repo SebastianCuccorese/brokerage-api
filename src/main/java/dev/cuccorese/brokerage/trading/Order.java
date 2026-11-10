@@ -21,9 +21,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * An order and the rules of its life: {@link #place} decides the status it starts in. The
- * rejection reason is told to the caller but not stored, because the provided schema has no
- * column for it.
+ * An order and the rules of its life: {@link #place} decides the status it starts in, and
+ * {@link #cancel} is the only transition after that. The rejection reason is told to the
+ * caller but not stored, because the provided schema has no column for it.
  */
 @Entity
 @Table(name = "orders")
@@ -105,6 +105,14 @@ public class Order {
             return Optional.of(RejectionReason.INSUFFICIENT_SHARES);
         }
         return Optional.empty();
+    }
+
+    /** @throws OrderNotCancellableException unless the order is still open ({@code NEW}) */
+    public void cancel() {
+        if (status != OrderStatus.NEW) {
+            throw new OrderNotCancellableException(id, status);
+        }
+        status = OrderStatus.CANCELLED;
     }
 
     public Money getPrice() {

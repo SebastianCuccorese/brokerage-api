@@ -139,4 +139,27 @@ class OrderTest {
                 Optional.of(ars("1")), ledger("10000", 0), NOW))
                 .isInstanceOf(InvalidOrderException.class);
     }
+
+    @Test
+    void anOpenOrderCanBeCancelled() {
+        Order order = place(limit(OrderSide.BUY, 1, "100"), null, ledger("10000", 0));
+
+        order.cancel();
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+    }
+
+    @Test
+    void onlyAnOpenOrderCanBeCancelled() {
+        Order filled = place(market(OrderSide.BUY, 1), "100", ledger("10000", 0));
+        Order rejected = place(market(OrderSide.BUY, 1), null, ledger("10000", 0));
+        Order cancelled = place(limit(OrderSide.BUY, 1, "100"), null, ledger("10000", 0));
+        cancelled.cancel();
+
+        for (Order order : new Order[] {filled, rejected, cancelled}) {
+            OrderStatus before = order.getStatus();
+            assertThatThrownBy(order::cancel).isInstanceOf(OrderNotCancellableException.class);
+            assertThat(order.getStatus()).isEqualTo(before);
+        }
+    }
 }
