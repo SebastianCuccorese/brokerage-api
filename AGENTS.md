@@ -51,6 +51,7 @@ rules apply to any agent working in this repository.
   the code cannot say (the why, a contract, a gotcha). No line-by-line
   comments and no comments that restate the code.
 - Prefer the standard library and the framework over hand-rolled code.
-- Entities use Lombok (`@Getter`, protected no-args constructor). Never `@Data` on
-  an entity: its equals/hashCode over every field breaks with JPA proxies and
-  lazy associations.
+- Use Lombok for boilerplate: `@Getter` and a protected `@NoArgsConstructor` on
+  entities, `@RequiredArgsConstructor` for constructor injection. Records stay
+  records (DTOs, value objects). Never `@Data` on an entity: its equals/hashCode
+  over every field breaks with JPA proxies and lazy associations.
