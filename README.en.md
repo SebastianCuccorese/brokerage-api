@@ -1,30 +1,40 @@
 # brokerage-api
 
-Brokerage REST API: portfolio, instrument search and market and limit orders. · [Español](README.md)
+Brokerage REST API: portfolio, instrument search and market and limit orders. Java 21 and Spring Boot 4. · [Español](README.md)
 
-## Architecture
+The design decisions and the reason for each one are in [docs/decisions.en.md](docs/decisions.en.md).
 
-The system has two halves with different needs, and each uses the style that fits it. Placing and cancelling orders is a problem of rules (states, rejections, balance), so it is modelled with DDD. The portfolio and the search are reads: they are computed from the data, without going through the domain model.
+## Running it
 
-- **Writes (DDD):** the order is an aggregate that controls its own transitions (it can only be cancelled from `NEW`), and the balance is checked with the account locked, so two concurrent orders cannot spend the same money.
-- **Reads (projection):** the portfolio is recomputed from the filled orders, with an exact average cost.
-- **No isolated domain layer:** the JPA entities are the model. Separating them from Spring would add ports and mappers with no benefit at this size.
-- **Two modules:** `market` (instruments and prices) and `trading` (accounts, orders and portfolio). `trading` uses `market`, never the other way round.
+Requirements: Java 21 and Docker.
 
-## Money
+**With the local database**, loaded with the provided data:
 
-Every amount is a `Money` (currency + amount), never a bare number. Today there are only pesos (ARS), as the statement asks, but the model accepts other currencies without changing any signature.
+```sh
+docker compose up -d
+./mvnw spring-boot:run
+```
 
-- **Precision:** `BigDecimal` in every calculation. It is rounded once, when responding, to the currency's decimals (half-even).
-- **No mixing:** combining different currencies is an error, never an implicit conversion.
-- **Database:** the price columns do not store the currency and are read as ARS. Supporting another currency would mean adding that column.
+**With the provided database:** copy `.env.example` to `.env`, fill in the connection and run `./mvnw spring-boot:run`. `.env` is in `.gitignore` and never committed. When it exists, it takes precedence over the local database.
 
-## Instrument search
+The API listens on `http://localhost:8080`.
 
-`GET /instruments?query=banco` returns the instruments whose ticker or name contains the text, case-insensitive and ordered by ticker.
+## Tests
 
-- The peso is left out: it is the account's cash, not an asset you buy.
-- Types are exposed in English (`STOCK`, `CURRENCY`). A converter translates the database values (`ACCIONES`, `MONEDA`), so the table's vocabulary does not leak into the model.
-- `%` and `_` are searched as literal text, not as wildcards.
-- It is a direct projection to the response. There are no rules to protect, so it skips the service layer.
-- Possible improvement: ignore accents ("compania" would find "Compañía") with Postgres's `unaccent` extension.
+```sh
+./mvnw verify
+```
+
+They use a throwaway Postgres (Testcontainers) with the same data, so they need Docker and never touch a shared database.
+
+## Endpoints
+
+| Method | Path | What it does |
+|---|---|---|
+| GET | `/instruments?query=banco` | Searches instruments by ticker or name |
+
+Ready-to-run examples live in [`http/`](http/) (VS Code REST Client or IntelliJ).
+
+## Use of AI
+
+The project was built with AI agents under the rules in [AGENTS.md](AGENTS.md): decisions are human, each feature goes in its own branch and PR, and every change comes with its tests.
