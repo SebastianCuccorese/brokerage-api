@@ -49,6 +49,9 @@ Usan un Postgres descartable (Testcontainers) con los mismos datos, así que nec
 |---|---|---|
 | GET | `/instruments?query=banco` | Busca instrumentos por ticker o nombre |
 | GET | `/users/{userId}/portfolio` | Valor total, pesos disponibles y posiciones |
+| POST | `/orders` | Envía una orden de compra o venta, de mercado o límite |
+| GET | `/orders/{orderId}` | Devuelve una orden |
+| POST | `/orders/{orderId}/cancel` | Cancela una orden abierta (`NEW`) |
 
 Documentación interactiva de la API: <http://localhost:8080/swagger-ui.html>
 

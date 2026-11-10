@@ -1,0 +1,43 @@
+@baseUrl = http://localhost:8080
+
+### Market buy of 10 shares: FILLED at the latest close
+POST {{baseUrl}}/orders
+Content-Type: application/json
+
+{"userId": 1, "instrumentId": 47, "side": "BUY", "type": "MARKET", "size": 10}
+
+### Limit buy for an amount of pesos: NEW, for the whole shares it buys
+POST {{baseUrl}}/orders
+Content-Type: application/json
+
+{"userId": 1, "instrumentId": 47, "side": "BUY", "type": "LIMIT", "amount": 10000, "price": 900}
+
+### More shares than the user has: stored as REJECTED (201) with the reason
+POST {{baseUrl}}/orders
+Content-Type: application/json
+
+{"userId": 1, "instrumentId": 47, "side": "SELL", "type": "MARKET", "size": 1000}
+
+### Market order for an instrument without market data: REJECTED
+POST {{baseUrl}}/orders
+Content-Type: application/json
+
+{"userId": 1, "instrumentId": 3, "side": "BUY", "type": "MARKET", "size": 1}
+
+### Both size and amount (400, nothing stored)
+POST {{baseUrl}}/orders
+Content-Type: application/json
+
+{"userId": 1, "instrumentId": 47, "side": "BUY", "type": "MARKET", "size": 1, "amount": 1000}
+
+### A seed order that is still open
+GET {{baseUrl}}/orders/7
+
+### Cancel it (200, then 409 if sent again)
+POST {{baseUrl}}/orders/7/cancel
+
+### A filled order cannot be cancelled (409)
+POST {{baseUrl}}/orders/2/cancel
+
+### Unknown order (404)
+GET {{baseUrl}}/orders/999

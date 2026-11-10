@@ -47,6 +47,16 @@ Se calcula recorriendo las órdenes del usuario en orden cronológico: las ejecu
 - **Sin precio:** si un instrumento en cartera no tiene market data, su valor y sus rendimientos vienen en `null` y no suman al total.
 - **Evolución hacia cuentas:** hoy la cuenta es una columna de `users`. Para cotitulares haría falta una tabla `accounts` con sus titulares, las órdenes por cuenta y el bloqueo sobre la cuenta. No se implementa porque nada del enunciado lo pide.
 
+## Órdenes
+
+Una orden de mercado se ejecuta al último `close` y queda `FILLED`. Una límite queda `NEW` a su precio y reserva pesos o acciones hasta que se cancela: el mercado no se simula, así que nada la cruza contra un precio. Con un monto en pesos se compran solo acciones enteras.
+
+- **Dos tipos de error:** un pedido que no tiene sentido (JSON roto, cantidad y monto a la vez, una orden límite sin precio, mover pesos) es un 400 y no guarda nada. Una orden válida que el usuario no puede cubrir se guarda como `REJECTED` y responde 201 con su `rejectionReason` (`INSUFFICIENT_CASH`, `INSUFFICIENT_SHARES` contando las ventas abiertas, `AMOUNT_BELOW_ONE_SHARE` o `NO_MARKET_DATA`), porque así la describe el enunciado: el mercado la rechaza y queda en el historial. Un monto que no alcanza para una acción es un rechazo y no un 400, porque depende del precio de ese momento.
+- **El motivo se guarda** en la columna `rejectionReason` (migración V3), para poder auditar los rechazos; es `null` en las demás órdenes.
+- **Un usuario a la vez:** el envío bloquea la fila del usuario antes de calcular su saldo, así dos órdenes simultáneas no gastan los mismos pesos. La cancelación bloquea la orden, para que dos cancelaciones no la vean abierta a la vez.
+- **Hora en UTC:** `datetime` es un instante (`timestamptz`) y la API lo devuelve en ISO-8601 UTC (`2026-11-10T14:30:00Z`). Las órdenes provistas tenían la hora de Buenos Aires sin zona (de 11:13 a 16:11, el horario del mercado local); la migración V4 las convirtió una sola vez, sin cambiar su orden. La hora sale de un único `Clock`, que los tests fijan.
+- **Cancelar no verifica al dueño:** no se comprueba que la orden sea de quien lo pide, porque no hay autenticación, y un `userId` enviado por el cliente solo parecería seguridad.
+
 ## Logs
 
 Cada request lleva un id (`X-Request-Id`) que aparece en todas sus líneas de log y se devuelve en la respuesta, para seguir un pedido de punta a punta. Se registran los eventos de negocio a nivel INFO (llegan con las órdenes); nunca emails ni secretos.

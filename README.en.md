@@ -49,6 +49,9 @@ They use a throwaway Postgres (Testcontainers) with the same data, so they need 
 |---|---|---|
 | GET | `/instruments?query=banco` | Searches instruments by ticker or name |
 | GET | `/users/{userId}/portfolio` | Total value, available pesos and positions |
+| POST | `/orders` | Places a market or limit buy or sell order |
+| GET | `/orders/{orderId}` | Returns one order |
+| POST | `/orders/{orderId}/cancel` | Cancels an open (`NEW`) order |
 
 Interactive API docs: <http://localhost:8080/swagger-ui.html>
 

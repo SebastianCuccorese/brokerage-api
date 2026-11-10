@@ -47,6 +47,16 @@ It is computed by walking the user's orders in chronological order: filled ones 
 - **No price:** if a held instrument has no market data, its value and returns are `null` and do not add to the total.
 - **Towards accounts:** today the account is a column of `users`. Co-owners would need an `accounts` table with its holders, orders per account and the lock on the account. It is not built because nothing in the statement asks for it.
 
+## Orders
+
+A market order executes at the latest `close` and is `FILLED`. A limit order stays `NEW` at its own price and reserves pesos or shares until it is cancelled: the market is not simulated, so nothing matches it against a price. An amount in pesos buys whole shares only.
+
+- **Two kinds of error:** a request that makes no sense (broken JSON, both size and amount, a limit order without a price, moving pesos) is a 400 and stores nothing. A valid order the user cannot cover is stored as `REJECTED` and answered with 201 and its `rejectionReason` (`INSUFFICIENT_CASH`, `INSUFFICIENT_SHARES` counting open sells, `AMOUNT_BELOW_ONE_SHARE` or `NO_MARKET_DATA`), because that is how the statement describes it: the market rejects it and it stays in the history. An amount too small for one share is a rejection, not a 400, because it depends on the price at that moment.
+- **The reason is stored** in the `rejectionReason` column (migration V3), so rejections can be audited; it is `null` for every other order.
+- **One user at a time:** placing an order locks the user's row before computing their balance, so two concurrent orders cannot spend the same pesos. Cancelling locks the order, so two cancels cannot both see it open.
+- **Time in UTC:** `datetime` is an instant (`timestamptz`) and the API returns it as ISO-8601 UTC (`2026-11-10T14:30:00Z`). The provided orders held Buenos Aires time without a zone (11:13 to 16:11, the local market hours); migration V4 converted them once, keeping their order. The time comes from a single `Clock`, which tests fix.
+- **Cancel does not check the owner:** nothing verifies that the order belongs to the caller, because there is no authentication, and a `userId` sent by the client would only look like security.
+
 ## Logs
 
 Each request carries an id (`X-Request-Id`) that appears on all its log lines and is returned in the response, to follow a call end to end. Business events are logged at INFO (they come with orders); never emails or secrets.
