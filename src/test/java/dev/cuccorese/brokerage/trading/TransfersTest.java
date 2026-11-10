@@ -162,53 +162,58 @@ class TransfersTest {
 
     static Stream<Arguments> invalidTransfers() {
         return Stream.of(
-                Arguments.of("malformed JSON", """
+                Arguments.of("malformed JSON", "MALFORMED_REQUEST", """
                         {"type": "DEPOSIT",
                         """),
-                Arguments.of("missing type", """
+                Arguments.of("missing type", "VALIDATION_FAILED", """
                         {"amount": 100}
                         """),
-                Arguments.of("unknown type", """
+                Arguments.of("unknown type", "MALFORMED_REQUEST", """
                         {"type": "CASH_IN", "amount": 100}
                         """),
-                Arguments.of("missing amount", """
+                Arguments.of("missing amount", "VALIDATION_FAILED", """
                         {"type": "DEPOSIT"}
                         """),
-                Arguments.of("zero amount", """
+                Arguments.of("zero amount", "VALIDATION_FAILED", """
                         {"type": "DEPOSIT", "amount": 0}
                         """),
-                Arguments.of("negative amount", """
+                Arguments.of("negative amount", "VALIDATION_FAILED", """
                         {"type": "WITHDRAWAL", "amount": -100}
                         """),
-                Arguments.of("amount with three decimals", """
+                Arguments.of("amount with three decimals", "VALIDATION_FAILED", """
                         {"type": "DEPOSIT", "amount": 100.001}
                         """),
-                Arguments.of("amount wider than its column", """
+                Arguments.of("amount wider than its column", "VALIDATION_FAILED", """
                         {"type": "DEPOSIT", "amount": 1234567890123}
                         """),
-                Arguments.of("amount that is not a number", """
+                Arguments.of("amount that is not a number", "MALFORMED_REQUEST", """
                         {"type": "DEPOSIT", "amount": "lots"}
                         """));
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("invalidTransfers")
-    void anInvalidTransferIsABadRequestAndStoresNothing(String description, String json) {
+    void anInvalidTransferIsABadRequestAndStoresNothing(String description, String code, String json) {
         int user = accounts.newUser();
 
         assertThat(transfer(user, json)).hasStatus(HttpStatus.BAD_REQUEST)
-                .bodyJson().extractingPath("$.status").isEqualTo(400);
+                .bodyJson().isLenientlyEqualTo("""
+                        {"status": 400, "code": "%s"}
+                        """.formatted(code));
         assertThat(accounts.transferCount(user)).isZero();
     }
 
     @Test
     void anUnknownUserIsNotFound() {
+        String unknownUser = """
+                {"code": "USER_NOT_FOUND", "detail": "User 999999 not found"}
+                """;
         assertThat(deposit(999999, "100")).hasStatus(HttpStatus.NOT_FOUND)
-                .bodyJson().extractingPath("$.detail").isEqualTo("User 999999 not found");
+                .bodyJson().isLenientlyEqualTo(unknownUser);
         assertThat(mvc.get().uri("/users/999999/transfers")).hasStatus(HttpStatus.NOT_FOUND)
-                .bodyJson().extractingPath("$.detail").isEqualTo("User 999999 not found");
+                .bodyJson().isLenientlyEqualTo(unknownUser);
         assertThat(mvc.get().uri("/users/999999/transfers/1")).hasStatus(HttpStatus.NOT_FOUND)
-                .bodyJson().extractingPath("$.detail").isEqualTo("User 999999 not found");
+                .bodyJson().isLenientlyEqualTo(unknownUser);
     }
 
     @Test
@@ -216,7 +221,9 @@ class TransfersTest {
         int user = accounts.newUser();
 
         assertThat(mvc.get().uri("/users/{userId}/transfers/999999", user)).hasStatus(HttpStatus.NOT_FOUND)
-                .bodyJson().extractingPath("$.detail").isEqualTo("Transfer 999999 not found");
+                .bodyJson().isLenientlyEqualTo("""
+                        {"code": "TRANSFER_NOT_FOUND", "detail": "Transfer 999999 not found"}
+                        """);
     }
 
     @Test
@@ -227,7 +234,9 @@ class TransfersTest {
 
         assertThat(mvc.get().uri("/users/{userId}/transfers/{id}", stranger, transferId))
                 .hasStatus(HttpStatus.NOT_FOUND)
-                .bodyJson().extractingPath("$.detail").isEqualTo("Transfer " + transferId + " not found");
+                .bodyJson().isLenientlyEqualTo("""
+                        {"code": "TRANSFER_NOT_FOUND", "detail": "Transfer %d not found"}
+                        """.formatted(transferId));
         assertThat(mvc.get().uri("/users/{userId}/transfers/{id}", owner, transferId)).hasStatusOk();
     }
 }

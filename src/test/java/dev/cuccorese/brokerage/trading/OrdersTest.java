@@ -285,7 +285,9 @@ class OrdersTest {
                 {"userId": 999999, "instrumentId": 47, "side": "BUY", "type": "MARKET", "size": 1}
                 """))
                 .hasStatus(HttpStatus.NOT_FOUND)
-                .bodyJson().extractingPath("$.detail").isEqualTo("User 999999 not found");
+                .bodyJson().isLenientlyEqualTo("""
+                        {"code": "USER_NOT_FOUND", "detail": "User 999999 not found"}
+                        """);
     }
 
     @Test
@@ -296,7 +298,9 @@ class OrdersTest {
                 {"userId": %d, "instrumentId": 999999, "side": "BUY", "type": "MARKET", "size": 1}
                 """.formatted(user)))
                 .hasStatus(HttpStatus.NOT_FOUND)
-                .bodyJson().extractingPath("$.detail").isEqualTo("Instrument 999999 not found");
+                .bodyJson().isLenientlyEqualTo("""
+                        {"code": "INSTRUMENT_NOT_FOUND", "detail": "Instrument 999999 not found"}
+                        """);
         assertThat(accounts.orderCount(user)).isZero();
     }
 
@@ -319,7 +323,9 @@ class OrdersTest {
     void anUnknownOrderIsNotFound() {
         assertThat(mvc.get().uri("/orders/999999")).hasStatus(HttpStatus.NOT_FOUND);
         assertThat(cancel(999999)).hasStatus(HttpStatus.NOT_FOUND)
-                .bodyJson().extractingPath("$.detail").isEqualTo("Order 999999 not found");
+                .bodyJson().isLenientlyEqualTo("""
+                        {"code": "ORDER_NOT_FOUND", "detail": "Order 999999 not found"}
+                        """);
     }
 
     @Test
@@ -344,8 +350,10 @@ class OrdersTest {
                 """.formatted(user)));
 
         assertThat(cancel(orderId)).hasStatus(HttpStatus.CONFLICT)
-                .bodyJson().extractingPath("$.detail")
-                .isEqualTo("Order " + orderId + " is FILLED; only NEW orders can be cancelled");
+                .bodyJson().isLenientlyEqualTo("""
+                        {"code": "ORDER_NOT_CANCELLABLE",
+                         "detail": "Order %d is FILLED; only NEW orders can be cancelled"}
+                        """.formatted(orderId));
         assertThat(mvc.get().uri("/orders/{orderId}", orderId))
                 .bodyJson().extractingPath("$.status").isEqualTo("FILLED");
     }

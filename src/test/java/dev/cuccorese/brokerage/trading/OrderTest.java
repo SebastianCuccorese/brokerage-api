@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.cuccorese.brokerage.market.Instrument;
 import dev.cuccorese.brokerage.market.InstrumentType;
+import dev.cuccorese.brokerage.shared.ConflictException;
 import dev.cuccorese.brokerage.shared.Currencies;
+import dev.cuccorese.brokerage.shared.InvalidRequestException;
 import dev.cuccorese.brokerage.shared.Money;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -160,7 +162,7 @@ class OrderTest {
         PlaceOrder buyPesos = new PlaceOrder(USER, PESOS.getId(), OrderSide.BUY, OrderType.MARKET, 1, null, null);
 
         assertThatThrownBy(() -> Order.place(buyPesos, PESOS, Optional.of(ars("1")), cash(10_000), NOW))
-                .isInstanceOf(InvalidOrderException.class);
+                .isInstanceOf(InvalidRequestException.class);
     }
 
     @Test
@@ -181,7 +183,7 @@ class OrderTest {
 
         for (Order order : List.of(filled, rejected, cancelled)) {
             OrderStatus before = order.getStatus();
-            assertThatThrownBy(order::cancel).isInstanceOf(OrderNotCancellableException.class);
+            assertThatThrownBy(order::cancel).isInstanceOf(ConflictException.class);
             assertThat(order.getStatus()).isEqualTo(before);
         }
     }

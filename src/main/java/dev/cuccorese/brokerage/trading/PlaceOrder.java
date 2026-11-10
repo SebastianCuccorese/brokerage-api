@@ -1,5 +1,7 @@
 package dev.cuccorese.brokerage.trading;
 
+import dev.cuccorese.brokerage.shared.ErrorCode;
+import dev.cuccorese.brokerage.shared.InvalidRequestException;
 import dev.cuccorese.brokerage.shared.Money;
 
 /**
@@ -17,10 +19,10 @@ public record PlaceOrder(
 
     public PlaceOrder {
         if ((size == null) == (amount == null)) {
-            throw new InvalidOrderException("Send exactly one of size or amount");
+            throw new InvalidRequestException(ErrorCode.SIZE_OR_AMOUNT_REQUIRED, "Send exactly one of size or amount");
         }
         if ((type == OrderType.LIMIT) != (limitPrice != null)) {
-            throw new InvalidOrderException("A LIMIT order needs a price and a MARKET order takes none");
+            throw new InvalidRequestException(ErrorCode.LIMIT_PRICE_MISMATCH, "A LIMIT order needs a price and a MARKET order takes none");
         }
     }
 
@@ -31,7 +33,7 @@ public record PlaceOrder(
         }
         long shares = amount.wholeTimes(price);
         if (shares > Integer.MAX_VALUE) {
-            throw new InvalidOrderException("The amount buys more shares than one order can hold");
+            throw new InvalidRequestException(ErrorCode.ORDER_TOO_LARGE, "The amount buys more shares than one order can hold");
         }
         return (int) shares;
     }

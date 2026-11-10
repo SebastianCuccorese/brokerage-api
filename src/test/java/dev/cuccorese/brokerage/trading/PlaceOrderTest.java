@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.cuccorese.brokerage.shared.Currencies;
+import dev.cuccorese.brokerage.shared.InvalidRequestException;
 import dev.cuccorese.brokerage.shared.Money;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
@@ -21,17 +22,17 @@ class PlaceOrderTest {
     @Test
     void takesExactlyOneOfSizeOrAmount() {
         assertThatThrownBy(() -> request(OrderSide.BUY, OrderType.MARKET, 1, ars("100"), null))
-                .isInstanceOf(InvalidOrderException.class);
+                .isInstanceOf(InvalidRequestException.class);
         assertThatThrownBy(() -> request(OrderSide.BUY, OrderType.MARKET, null, null, null))
-                .isInstanceOf(InvalidOrderException.class);
+                .isInstanceOf(InvalidRequestException.class);
     }
 
     @Test
     void takesAPriceForLimitOrdersOnly() {
         assertThatThrownBy(() -> request(OrderSide.BUY, OrderType.LIMIT, 1, null, null))
-                .isInstanceOf(InvalidOrderException.class);
+                .isInstanceOf(InvalidRequestException.class);
         assertThatThrownBy(() -> request(OrderSide.BUY, OrderType.MARKET, 1, null, ars("100")))
-                .isInstanceOf(InvalidOrderException.class);
+                .isInstanceOf(InvalidRequestException.class);
     }
 
     @Test
@@ -46,6 +47,6 @@ class PlaceOrderTest {
     void refusesAnAmountThatBuysMoreSharesThanAnOrderHolds() {
         PlaceOrder huge = request(OrderSide.BUY, OrderType.LIMIT, null, ars("999999999999.99"), ars("0.01"));
 
-        assertThatThrownBy(() -> huge.sharesAt(ars("0.01"))).isInstanceOf(InvalidOrderException.class);
+        assertThatThrownBy(() -> huge.sharesAt(ars("0.01"))).isInstanceOf(InvalidRequestException.class);
     }
 }

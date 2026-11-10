@@ -1,6 +1,8 @@
 package dev.cuccorese.brokerage.trading;
 
 import dev.cuccorese.brokerage.shared.Currencies;
+import dev.cuccorese.brokerage.shared.ErrorCode;
+import dev.cuccorese.brokerage.shared.InvalidRequestException;
 import dev.cuccorese.brokerage.shared.Money;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -50,7 +52,7 @@ public class Transfer {
 
     private Transfer(Integer userId, TransferType type, Money amount, Instant at) {
         if (!amount.isGreaterThan(Money.zero(amount.currency()))) {
-            throw new InvalidTransferException("amount must be positive");
+            throw new InvalidRequestException(ErrorCode.TRANSFER_AMOUNT_NOT_POSITIVE, "amount must be positive");
         }
         this.userId = userId;
         this.type = type;
@@ -59,7 +61,7 @@ public class Transfer {
         this.datetime = at;
     }
 
-    /** @throws InvalidTransferException when {@code amount} is not positive */
+    /** @throws InvalidRequestException when {@code amount} is not positive */
     public static Transfer deposit(Integer userId, Money amount, Instant at) {
         return new Transfer(userId, TransferType.DEPOSIT, amount, at);
     }
@@ -68,7 +70,7 @@ public class Transfer {
      * Takes {@code amount} out of what the user's {@code ledger} has available, so the cash that
      * open limit buys reserve stays with them. Beyond that it comes back REJECTED.
      *
-     * @throws InvalidTransferException when {@code amount} is not positive
+     * @throws InvalidRequestException when {@code amount} is not positive
      */
     public static Transfer withdraw(Integer userId, Money amount, Ledger ledger, Instant at) {
         Transfer transfer = new Transfer(userId, TransferType.WITHDRAWAL, amount, at);

@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import dev.cuccorese.brokerage.market.Instrument;
 import dev.cuccorese.brokerage.market.InstrumentType;
 import dev.cuccorese.brokerage.shared.Currencies;
+import dev.cuccorese.brokerage.shared.ErrorCode;
+import dev.cuccorese.brokerage.shared.InvalidRequestException;
 import dev.cuccorese.brokerage.shared.Money;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -82,8 +84,10 @@ class TransferTest {
 
     @Test
     void anAmountMustBePositive() {
-        assertThatThrownBy(() -> Transfer.deposit(USER, ars("0"), NOW)).isInstanceOf(InvalidTransferException.class);
+        assertThatThrownBy(() -> Transfer.deposit(USER, ars("0"), NOW))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasFieldOrPropertyWithValue("code", ErrorCode.TRANSFER_AMOUNT_NOT_POSITIVE);
         assertThatThrownBy(() -> Transfer.withdraw(USER, ars("-1"), cash("1000"), NOW))
-                .isInstanceOf(InvalidTransferException.class);
+                .isInstanceOf(InvalidRequestException.class);
     }
 }

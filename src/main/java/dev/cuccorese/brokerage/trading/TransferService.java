@@ -1,5 +1,6 @@
 package dev.cuccorese.brokerage.trading;
 
+import dev.cuccorese.brokerage.shared.ErrorCode;
 import dev.cuccorese.brokerage.shared.Money;
 import dev.cuccorese.brokerage.shared.NotFoundException;
 import java.time.Clock;
@@ -25,7 +26,7 @@ public class TransferService {
      */
     @Transactional
     public Transfer make(Integer userId, TransferType type, Money amount) {
-        users.findWithLockById(userId).orElseThrow(() -> new NotFoundException("User", userId));
+        users.findWithLockById(userId).orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND, "User", userId));
         Instant now = Instant.now(clock).truncatedTo(ChronoUnit.SECONDS);
         Transfer transfer = switch (type) {
             case DEPOSIT -> Transfer.deposit(userId, amount, now);
@@ -46,12 +47,12 @@ public class TransferService {
     public Transfer get(Integer userId, Integer transferId) {
         requireUser(userId);
         return transfers.findByIdAndUserId(transferId, userId)
-                .orElseThrow(() -> new NotFoundException("Transfer", transferId));
+                .orElseThrow(() -> new NotFoundException(ErrorCode.TRANSFER_NOT_FOUND, "Transfer", transferId));
     }
 
     private void requireUser(Integer userId) {
         if (!users.existsById(userId)) {
-            throw new NotFoundException("User", userId);
+            throw new NotFoundException(ErrorCode.USER_NOT_FOUND, "User", userId);
         }
     }
 }

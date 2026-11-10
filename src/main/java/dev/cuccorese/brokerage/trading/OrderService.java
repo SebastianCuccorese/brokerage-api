@@ -4,6 +4,7 @@ import dev.cuccorese.brokerage.market.Instrument;
 import dev.cuccorese.brokerage.market.InstrumentRepository;
 import dev.cuccorese.brokerage.market.Quote;
 import dev.cuccorese.brokerage.market.QuoteRepository;
+import dev.cuccorese.brokerage.shared.ErrorCode;
 import dev.cuccorese.brokerage.shared.Money;
 import dev.cuccorese.brokerage.shared.NotFoundException;
 import java.time.Clock;
@@ -33,9 +34,9 @@ public class OrderService {
     @Transactional
     public Order place(PlaceOrder request) {
         users.findWithLockById(request.userId())
-                .orElseThrow(() -> new NotFoundException("User", request.userId()));
+                .orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND, "User", request.userId()));
         Instrument instrument = instruments.findById(request.instrumentId())
-                .orElseThrow(() -> new NotFoundException("Instrument", request.instrumentId()));
+                .orElseThrow(() -> new NotFoundException(ErrorCode.INSTRUMENT_NOT_FOUND, "Instrument", request.instrumentId()));
         Optional<Money> lastClose = quotes.findLatest(List.of(instrument.getId())).stream()
                 .findFirst()
                 .map(Quote::getClose);
@@ -46,13 +47,13 @@ public class OrderService {
     /** Locks the order so that two concurrent cancels cannot both see it open. */
     @Transactional
     public Order cancel(Integer orderId) {
-        Order order = orders.findWithLockById(orderId).orElseThrow(() -> new NotFoundException("Order", orderId));
+        Order order = orders.findWithLockById(orderId).orElseThrow(() -> new NotFoundException(ErrorCode.ORDER_NOT_FOUND, "Order", orderId));
         order.cancel();
         return order;
     }
 
     @Transactional(readOnly = true)
     public Order get(Integer orderId) {
-        return orders.findById(orderId).orElseThrow(() -> new NotFoundException("Order", orderId));
+        return orders.findById(orderId).orElseThrow(() -> new NotFoundException(ErrorCode.ORDER_NOT_FOUND, "Order", orderId));
     }
 }
