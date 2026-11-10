@@ -15,7 +15,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** What one key of a user created for one operation, and the fingerprint of the request that sent it. */
+/** What one key of a user created for one operation, and the hash of the request that sent it. */
 @Entity
 @Table(name = "idempotency_keys")
 @Getter
@@ -44,7 +44,7 @@ class IdempotencyRecord {
     @Column(name = "createdat")
     private Instant createdAt;
 
-    IdempotencyRecord(Integer userId, IdempotentOperation operation, IdempotencyKey key, Fingerprint request,
+    IdempotencyRecord(Integer userId, IdempotentOperation operation, IdempotencyKey key, RequestHash request,
             Integer resourceId, Instant createdAt) {
         this.userId = userId;
         this.operation = operation;
@@ -59,7 +59,7 @@ class IdempotencyRecord {
      *
      * @throws UnprocessableContentException when the key comes back with a different request
      */
-    Integer resourceFor(Fingerprint request) {
+    Integer resourceFor(RequestHash request) {
         if (!requestHash.equals(request.sha256())) {
             throw new UnprocessableContentException(ErrorCode.IDEMPOTENCY_KEY_REUSED,
                     IdempotencyKey.HEADER + " " + idempotencyKey + " was already used for a different request");
