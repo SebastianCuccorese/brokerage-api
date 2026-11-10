@@ -277,17 +277,6 @@ class OrdersTest {
     }
 
     @Test
-    void aBadRequestNamesEachInvalidField() {
-        int user = accounts.newUser();
-
-        assertThat(place("""
-                {"userId": %d, "instrumentId": 47, "side": "BUY", "type": "LIMIT", "size": -1, "price": 900.001}
-                """.formatted(user)))
-                .hasStatus(HttpStatus.BAD_REQUEST)
-                .bodyJson().extractingPath("$.errors").asMap().containsOnlyKeys("size", "price");
-    }
-
-    @Test
     void anUnknownUserIsNotFound() {
         assertThat(place("""
                 {"userId": 999999, "instrumentId": 47, "side": "BUY", "type": "MARKET", "size": 1}

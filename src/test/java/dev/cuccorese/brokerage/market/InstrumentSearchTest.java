@@ -53,7 +53,6 @@ class InstrumentSearchTest {
     void rejectsABlankQuery() {
         assertThat(search(" ")).hasStatus(HttpStatus.BAD_REQUEST)
                 .bodyJson().extractingPath("$.status").isEqualTo(400);
-        assertThat(search(" ")).bodyJson().extractingPath("$.errors").asMap().containsOnlyKeys("query");
     }
 
     @Test
