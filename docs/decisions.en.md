@@ -13,7 +13,7 @@ The system has two halves with different needs, and each uses the style that fit
 
 ## Database
 
-The provided schema is version 1. On startup the application baselines any database at that version and applies the pending migrations (Flyway), so the local database, the tests and the provided database follow the same path. Hibernate only validates that the entities match the tables.
+The provided schema is version 1. On startup the application takes any database without history as version 1 and applies the pending migrations (Flyway), so the local database, the tests and the provided database follow the same path. Hibernate only validates that the entities match the tables.
 
 - **Consequence:** the first run against the provided database alters it: it adds indexes and, later, columns, and creates the `flyway_schema_history` table.
 - **Why Flyway now:** the schema is being extended and Hibernate validates it, so every database has to reach the expected version before serving traffic.

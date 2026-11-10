@@ -17,7 +17,7 @@ docker compose up -d
 
 **Con la base provista:** copiá `.env.example` a `.env`, completá la conexión y corré `./mvnw spring-boot:run`. El `.env` está en `.gitignore` y nunca se commitea. Si existe, tiene prioridad sobre la base local.
 
-Al arrancar, la aplicación aplica las migraciones pendientes, también sobre la base provista.
+Al arrancar, la aplicación aplica las migraciones pendientes, **también sobre la base provista**: la primera vez le agrega índices y columnas y crea la tabla `flyway_schema_history`. Usá la conexión directa a la base, no un pooler en modo transacción (por ejemplo, un host con `-pooler`): las migraciones necesitan una sesión estable.
 
 La API queda en `http://localhost:8080`.
 

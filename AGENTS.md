@@ -27,8 +27,9 @@ rules apply to any agent working in this repository.
 ## Database
 
 - The schema may be changed or extended when it brings a clear benefit
-  (performance, integrity). Every change is a versioned SQL script in `db/`
-  and is justified in `docs/decisions.md`.
+  (performance, integrity). Every change is a Flyway migration in
+  `src/main/resources/db/migration` (`db/01-database.sql` is the provided
+  state, version 1, and is never edited) and is justified in `docs/decisions.md`.
 - Hibernate validates the schema and never generates or alters it.
 
 ## Secrets
