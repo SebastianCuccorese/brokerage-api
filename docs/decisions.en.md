@@ -4,18 +4,18 @@ Why the project is built the way it is. How to run it is in the [README](../READ
 
 ## Architecture
 
-The system has two halves with different needs, and each uses the style that fits it. Placing and cancelling orders is a problem of rules (states, rejections, balance), so it is modelled with DDD. The portfolio and the search are reads: they are computed from the data, without going through the domain model.
+The system has two halves with different needs, and each uses the style that fits it. Placing and cancelling orders, or moving pesos, is a problem of rules (states, rejections, balance), so it is modelled with DDD. The portfolio and the search are reads: they are computed from the data, without going through the domain model.
 
-- **Writes (DDD):** the order is an aggregate that controls its own transitions (it can only be cancelled from `NEW`), and the balance is checked with the user locked, so two concurrent orders cannot spend the same money.
-- **Reads (projection):** the portfolio is recomputed from the filled orders, with an exact average cost.
+- **Writes (DDD):** the order and the transfer are aggregates that decide their own status (an order can only be cancelled from `NEW`, a withdrawal without funds is `REJECTED`), and the balance is checked with the user locked, so two concurrent operations cannot spend the same money.
+- **Reads (projection):** the portfolio is recomputed from the transfers and the filled orders, with an exact average cost.
 - **No isolated domain layer:** the JPA entities are the model. Separating them from Spring would add ports and mappers with no benefit at this size.
-- **Two modules:** `market` (instruments and prices) and `trading` (users, orders and portfolio). `trading` uses `market`, never the other way round.
+- **Two modules:** `market` (instruments and prices) and `trading` (users, transfers, orders and portfolio). `trading` uses `market`, never the other way round.
 
 ## Database
 
 The provided schema is version 1. On startup the application takes any database without history as version 1 and applies the pending migrations (Flyway), so the local database, the tests and the provided database follow the same path. Hibernate only validates that the entities match the tables.
 
-- **Consequence:** the first run against the provided database alters it: it adds indexes and, later, columns, and creates the `flyway_schema_history` table.
+- **Consequence:** the first run against the provided database alters it: it adds indexes and columns, moves the cash movements from `orders` to the new `transfers` table (V5, see [Transfers](#transfers)) and creates the `flyway_schema_history` table.
 - **Migrations** live in `src/main/resources/db/migration`. `db/01-database.sql` stays as the provided state: the local and test databases load it when they are created.
 - **Same version as the provided database:** Postgres 18.6 locally and in the tests, so what is tested is what runs.
 
@@ -39,7 +39,7 @@ Searches the text in the ticker or the name, case-insensitive, ordered by ticker
 
 ## Portfolio
 
-It is computed by walking the user's orders in chronological order: filled ones move pesos and shares, open ones (`NEW`) only reserve them.
+It is computed from the completed transfers, which move pesos, and from the user's orders walked in chronological order: filled ones move pesos and shares, open ones (`NEW`) only reserve them. Transfers need no such order because they only add or take away pesos.
 
 - **Available pesos:** cash minus what open limit buys commit, because that can no longer be used to trade. The total value does include it, because it still belongs to the user.
 - **Returns:** the total return is measured against the exact average cost, which a partial sale does not change. The daily return compares `close` with `previousClose`. Both are percentages.
@@ -49,13 +49,22 @@ It is computed by walking the user's orders in chronological order: filled ones 
 
 ## Orders
 
-A market order executes at the latest `close` and is `FILLED`. A limit order stays `NEW` at its own price and reserves pesos or shares until it is cancelled: the market is not simulated, so nothing matches it against a price. An amount in pesos buys whole shares only.
+A market order executes at the latest `close` and is `FILLED`. A limit order stays `NEW` at its own price and reserves pesos or shares until it is cancelled: the market is not simulated, so nothing matches it against a price. An amount in pesos buys whole shares only. The `side` is `BUY` or `SELL`: moving pesos is a [transfer](#transfers).
 
-- **Two kinds of error:** a request that makes no sense (broken JSON, both size and amount, a limit order without a price, moving pesos) is a 400 and stores nothing. A valid order the user cannot cover is stored as `REJECTED` and answered with 201 and its `rejectionReason` (`INSUFFICIENT_CASH`, `INSUFFICIENT_SHARES` counting open sells, `AMOUNT_BELOW_ONE_SHARE` or `NO_MARKET_DATA`), because that is how the statement describes it: the market rejects it and it stays in the history. An amount too small for one share is a rejection, not a 400, because it depends on the price at that moment.
+- **Two kinds of error:** a request that makes no sense (broken JSON, both size and amount, a limit order without a price, a `side` such as `CASH_IN`) is a 400 and stores nothing. A valid order the user cannot cover is stored as `REJECTED` and answered with 201 and its `rejectionReason` (`INSUFFICIENT_CASH`, `INSUFFICIENT_SHARES` counting open sells, `AMOUNT_BELOW_ONE_SHARE` or `NO_MARKET_DATA`), because that is how the statement describes it: the market rejects it and it stays in the history. An amount too small for one share is a rejection, not a 400, because it depends on the price at that moment.
 - **The reason is stored** in the `rejectionReason` column (migration V3), so rejections can be audited; it is `null` for every other order.
 - **One user at a time:** placing an order locks the user's row before computing their balance, so two concurrent orders cannot spend the same pesos. Cancelling locks the order, so two cancels cannot both see it open.
 - **Time in UTC:** `datetime` is an instant (`timestamptz`) and the API returns it as ISO-8601 UTC (`2026-11-10T14:30:00Z`). The provided orders held Buenos Aires time without a zone (11:13 to 16:11, the local market hours); migration V4 converted them once, keeping their order. The time comes from a single `Clock`, which tests fix.
 - **Cancel does not check the owner:** nothing verifies that the order belongs to the caller, because there is no authentication, and a `userId` sent by the client would only look like security.
+
+## Transfers
+
+A deposit or a withdrawal of pesos is a transfer, with its own table (`transfers`), aggregate and endpoint (`/users/{userId}/transfers`). The statement allows modelling them as `CASH_IN`/`CASH_OUT` orders and computing cash from the `orders` table; this project departs from that on purpose, because a transfer has no instrument, price or market. As an order it had to fill those columns with placeholders (the ARS instrument, price 1, the amount in `size`), and every order rule had to exclude those sides.
+
+- **Migration V5:** creates `transfers`, moves the cash movements from `orders` into it with their time (`FILLED` becomes `COMPLETED`, `REJECTED` stays `REJECTED`, and any other status stops the migration instead of guessing), deletes them from `orders` and restricts `side` to `BUY` and `SELL`. It runs in one transaction, and the seed portfolio does not change.
+- **Rejected withdrawals:** a withdrawal above the available pesos (open limit buys keep what they reserve) is stored `REJECTED` with `rejectionReason` `INSUFFICIENT_CASH` and answered with 201, like a rejected order. An amount that is not positive or has more than 2 decimals is a 400 and stores nothing.
+- **The same lock:** a withdrawal locks the user's row as an order does, so a withdrawal and a buy at the same time cannot spend the same pesos.
+- **History:** `GET /users/{userId}/transfers` returns them newest first. Another user's transfer answers 404, like one that does not exist.
 
 ## Errors
 
