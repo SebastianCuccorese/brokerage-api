@@ -45,3 +45,13 @@ Se calcula recorriendo las órdenes del usuario en orden cronológico: las ejecu
 - **El seed vende más de lo que tiene:** la orden 11 vende 30 BMA con 20 en cartera. El portfolio lo muestra como una posición de −10 (un corto, que gana si el precio baja) para coincidir con las órdenes. Se evaluó permitir ventas en corto con una cuenta de margen y se descartó: el enunciado pide validar que el usuario tenga las acciones, y además requeriría préstamo de títulos y garantías.
 - **Sin precio:** si un instrumento en cartera no tiene market data, su valor y sus rendimientos vienen en `null` y no suman al total.
 - **Evolución hacia cuentas:** hoy la cuenta es una columna de `users`. Para cotitulares haría falta una tabla `accounts` con sus titulares, las órdenes por cuenta y el bloqueo sobre la cuenta. No se implementa porque nada del enunciado lo pide.
+
+## Órdenes
+
+Una orden de mercado se ejecuta al último `close` y queda `FILLED`; una límite queda `NEW` a su precio. Con un monto en pesos se compran solo acciones enteras. Se distinguen dos tipos de error: un pedido que no tiene sentido (JSON roto, cantidad y monto a la vez, una orden límite sin precio, mover pesos) es un 400 y no guarda nada; una orden válida que el usuario no puede cubrir se guarda como `REJECTED`, porque así la describe el enunciado: el mercado la rechaza y queda en el historial.
+
+- **Rechazos con 201:** la orden rechazada existe, así que la respuesta es 201 con `Location`, `status: REJECTED` y un `rejectionReason`: `INSUFFICIENT_CASH`, `INSUFFICIENT_SHARES` (las ventas abiertas cuentan), `AMOUNT_BELOW_ONE_SHARE` o `NO_MARKET_DATA`.
+- **El motivo no se guarda:** solo viene en la respuesta del envío; al leer la orden después es `null`. Guardarlo pide una columna nueva, y como Hibernate valida el esquema, la aplicación no arrancaría contra la base provista hasta que alguien aplique el script. Queda como evolución: un script en `db/` con la columna y el campo en la entidad.
+- **Un usuario a la vez:** el envío bloquea la fila del usuario antes de calcular su saldo, así dos órdenes simultáneas se deciden una después de la otra y no gastan los mismos pesos. La cancelación bloquea la orden, para que dos cancelaciones no la vean abierta a la vez.
+- **Hora local:** `datetime` se guarda en hora de Buenos Aires y sin zona, como las órdenes provistas (de 11:13 a 16:11, el horario del mercado local). El reloj se inyecta, así los tests fijan la hora.
+- **Las órdenes límite no se ejecutan:** quedan `NEW` y reservan pesos o acciones hasta que se cancelan. El mercado no se simula, así que nada las cruza contra un precio.

@@ -45,3 +45,13 @@ It is computed by walking the user's orders in chronological order: filled ones 
 - **The seed sells more than it holds:** order 11 sells 30 BMA with 20 held. The portfolio shows it as a −10 position (a short, which gains when the price falls) to match the orders. Allowing short selling through a margin account was considered and discarded: the statement asks to check that the user holds the shares, and it would also need securities lending and collateral.
 - **No price:** if a held instrument has no market data, its value and returns are `null` and do not add to the total.
 - **Towards accounts:** today the account is a column of `users`. Co-owners would need an `accounts` table with its holders, orders per account and the lock on the account. It is not built because nothing in the statement asks for it.
+
+## Orders
+
+A market order executes at the latest `close` and is `FILLED`; a limit order stays `NEW` at its own price. An amount in pesos buys whole shares only. There are two kinds of error: a request that makes no sense (broken JSON, both size and amount, a limit order without a price, moving pesos) is a 400 and stores nothing; a valid order the user cannot cover is stored as `REJECTED`, because that is how the statement describes it: the market rejects it and it stays in the history.
+
+- **Rejections answer 201:** the rejected order exists, so the response is 201 with `Location`, `status: REJECTED` and a `rejectionReason`: `INSUFFICIENT_CASH`, `INSUFFICIENT_SHARES` (open sells count), `AMOUNT_BELOW_ONE_SHARE` or `NO_MARKET_DATA`.
+- **The reason is not stored:** it only comes in the response that placed the order; reading the order later gives `null`. Storing it needs a new column, and since Hibernate validates the schema, the application would not start against the provided database until someone applies the script. It is left as evolution: a script in `db/` with the column, and the field on the entity.
+- **One user at a time:** placing an order locks the user's row before computing their balance, so two concurrent orders are decided one after the other and cannot spend the same pesos. Cancelling locks the order, so two cancels cannot both see it open.
+- **Local time:** `datetime` is stored in Buenos Aires time without a zone, like the provided orders (11:13 to 16:11, the local market hours). The clock is injected, so tests fix the time.
+- **Limit orders are not executed:** they stay `NEW` and reserve pesos or shares until cancelled. The market is not simulated, so nothing matches them against a price.
