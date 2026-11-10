@@ -21,6 +21,18 @@ docker compose up -d
 
 La API queda en `http://localhost:8080`.
 
+**Imagen Docker:** el `Dockerfile` arma una imagen lista para producción. La configuración entra solo por variables de entorno.
+
+```sh
+docker build -t brokerage-api .
+docker run --rm -p 8080:8080 \
+  -e DB_URL=jdbc:postgresql://<host>:5432/brokerage \
+  -e DB_USERNAME=<usuario> -e DB_PASSWORD=<clave> \
+  brokerage-api
+```
+
+CI la construye en cada pull request y, en `main`, la publica en `ghcr.io/sebastiancuccorese/brokerage-api` con los tags `latest` y el SHA del commit. Los probes están en `/actuator/health/liveness` y `/actuator/health/readiness`.
+
 ## Tests
 
 ```sh

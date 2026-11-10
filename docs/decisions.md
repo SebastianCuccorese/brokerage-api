@@ -35,3 +35,13 @@ Busca el texto en el ticker o en el nombre, sin distinguir mayúsculas, y ordena
 - `%` y `_` se buscan como texto literal, no como comodines.
 - Es una proyección directa a la respuesta. No hay reglas que proteger, así que no pasa por un servicio.
 - Mejora posible: ignorar acentos ("compania" encontraría "Compañía") con la extensión `unaccent` de Postgres.
+
+## Despliegue
+
+La aplicación se despliega como una imagen de contenedor. Está en capas para que un cambio de código solo reconstruya la última y el resto salga de la caché.
+
+- **Capas:** dependencias, loader, snapshots y código, de la que menos cambia a la que más.
+- **Runtime:** solo JRE, con un usuario sin privilegios y heap según el límite de memoria del contenedor.
+- **Configuración:** solo por variables de entorno (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`); la imagen no lleva secretos.
+- **Probes:** `/actuator/health/liveness` y `/actuator/health/readiness` para el orquestador; es lo único que se expone de Actuator.
+- **CI:** la imagen se construye en cada PR y se publica desde `main`. Se escanea con Trivy y falla ante vulnerabilidades críticas con arreglo disponible.

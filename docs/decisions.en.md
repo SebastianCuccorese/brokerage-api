@@ -35,3 +35,13 @@ Searches the text in the ticker or the name, case-insensitive, ordered by ticker
 - `%` and `_` are searched as literal text, not as wildcards.
 - It is a direct projection to the response. There are no rules to protect, so it skips the service layer.
 - Possible improvement: ignore accents ("compania" would find "Compañía") with Postgres's `unaccent` extension.
+
+## Deployment
+
+The application is deployed as a container image. It is layered so a code change only rebuilds the last layer and the rest comes from cache.
+
+- **Layers:** dependencies, loader, snapshots and code, from least to most frequently changing.
+- **Runtime:** JRE only, with an unprivileged user and a heap sized from the container's memory limit.
+- **Configuration:** only through environment variables (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`); the image carries no secrets.
+- **Probes:** `/actuator/health/liveness` and `/actuator/health/readiness` for the orchestrator; it is the only Actuator endpoint exposed.
+- **CI:** the image is built on every PR and published from `main`. It is scanned with Trivy and fails on critical vulnerabilities that have a fix.
