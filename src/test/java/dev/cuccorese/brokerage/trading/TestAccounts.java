@@ -63,6 +63,6 @@ class TestAccounts {
     }
 
     private void deposit(int userId, int pesos) {
-        transfers.make(userId, TransferType.DEPOSIT, Money.of(Currencies.ARS, BigDecimal.valueOf(pesos)));
+        transfers.make(userId, TransferType.CASH_IN, Money.of(Currencies.ARS, BigDecimal.valueOf(pesos)));
     }
 }

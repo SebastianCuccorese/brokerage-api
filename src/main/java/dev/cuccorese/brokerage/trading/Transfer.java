@@ -62,8 +62,8 @@ public class Transfer {
     }
 
     /** @throws InvalidRequestException when {@code amount} is not positive */
-    public static Transfer deposit(Integer userId, Money amount, Instant at) {
-        return new Transfer(userId, TransferType.DEPOSIT, amount, at);
+    public static Transfer cashIn(Integer userId, Money amount, Instant at) {
+        return new Transfer(userId, TransferType.CASH_IN, amount, at);
     }
 
     /**
@@ -72,8 +72,8 @@ public class Transfer {
      *
      * @throws InvalidRequestException when {@code amount} is not positive
      */
-    public static Transfer withdraw(Integer userId, Money amount, Ledger ledger, Instant at) {
-        Transfer transfer = new Transfer(userId, TransferType.WITHDRAWAL, amount, at);
+    public static Transfer cashOut(Integer userId, Money amount, Ledger ledger, Instant at) {
+        Transfer transfer = new Transfer(userId, TransferType.CASH_OUT, amount, at);
         if (amount.isGreaterThan(ledger.availableCash())) {
             transfer.status = TransferStatus.REJECTED;
             transfer.rejectionReason = TransferRejectionReason.INSUFFICIENT_CASH;

@@ -3,7 +3,7 @@
 CREATE TABLE transfers (
   id SERIAL PRIMARY KEY,
   userId INT NOT NULL REFERENCES users(id),
-  type VARCHAR(10) NOT NULL CHECK (type IN ('DEPOSIT', 'WITHDRAWAL')),
+  type VARCHAR(10) NOT NULL CHECK (type IN ('CASH_IN', 'CASH_OUT')),
   amount NUMERIC(14, 2) NOT NULL CHECK (amount > 0),
   status VARCHAR(10) NOT NULL CHECK (status IN ('COMPLETED', 'REJECTED')),
   rejectionReason VARCHAR(30),
@@ -29,7 +29,7 @@ END $$;
 -- The statement stores the amount of a cash movement in size.
 INSERT INTO transfers (userId, type, amount, status, rejectionReason, datetime)
 SELECT userId,
-       CASE side WHEN 'CASH_IN' THEN 'DEPOSIT' WHEN 'CASH_OUT' THEN 'WITHDRAWAL' END,
+       side,
        size,
        CASE status WHEN 'FILLED' THEN 'COMPLETED' WHEN 'REJECTED' THEN 'REJECTED' END,
        rejectionReason,

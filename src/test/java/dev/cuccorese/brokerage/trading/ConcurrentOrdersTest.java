@@ -101,7 +101,7 @@ class ConcurrentOrdersTest {
         PlaceOrder buyForEverything = new PlaceOrder(user, PAMP, OrderSide.BUY, OrderType.MARKET, null, everything, null);
 
         List<String> outcomes = atOnce(List.of(
-                () -> "withdrawal " + transfers.make(user, TransferType.WITHDRAWAL, everything).getStatus(),
+                () -> "withdrawal " + transfers.make(user, TransferType.CASH_OUT, everything).getStatus(),
                 () -> "buy " + orders.place(buyForEverything).getStatus()));
 
         assertThat(outcomes).isIn(

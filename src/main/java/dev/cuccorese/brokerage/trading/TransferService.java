@@ -29,8 +29,8 @@ public class TransferService {
         users.findWithLockById(userId).orElseThrow(() -> new NotFoundException(ErrorCode.USER_NOT_FOUND, "User", userId));
         Instant now = Instant.now(clock).truncatedTo(ChronoUnit.SECONDS);
         Transfer transfer = switch (type) {
-            case DEPOSIT -> Transfer.deposit(userId, amount, now);
-            case WITHDRAWAL -> Transfer.withdraw(userId, amount, ledgers.of(userId), now);
+            case CASH_IN -> Transfer.cashIn(userId, amount, now);
+            case CASH_OUT -> Transfer.cashOut(userId, amount, ledgers.of(userId), now);
         };
         return transfers.save(transfer);
     }

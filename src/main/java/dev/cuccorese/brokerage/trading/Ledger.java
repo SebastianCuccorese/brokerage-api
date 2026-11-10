@@ -36,8 +36,8 @@ public class Ledger {
     private void apply(Transfer transfer) {
         switch (transfer.getStatus()) {
             case COMPLETED -> cash = switch (transfer.getType()) {
-                case DEPOSIT -> cash.plus(transfer.getAmount());
-                case WITHDRAWAL -> cash.minus(transfer.getAmount());
+                case CASH_IN -> cash.plus(transfer.getAmount());
+                case CASH_OUT -> cash.minus(transfer.getAmount());
             };
             case REJECTED -> { }
         }

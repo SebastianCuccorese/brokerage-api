@@ -61,6 +61,7 @@ A market order executes at the latest `close` and is `FILLED`. A limit order sta
 
 A deposit or a withdrawal of pesos is a transfer, with its own table (`transfers`), aggregate and endpoint (`/users/{userId}/transfers`). The statement allows modelling them as `CASH_IN`/`CASH_OUT` orders and computing cash from the `orders` table; this project departs from that on purpose, because a transfer has no instrument, price or market. As an order it had to fill those columns with placeholders (the ARS instrument, price 1, the amount in `size`), and every order rule had to exclude those sides.
 
+- **Same vocabulary:** a transfer's type is `CASH_IN` or `CASH_OUT`, the statement's names, so the migration copies the `side` as it is.
 - **Migration V5:** creates `transfers`, moves the cash movements from `orders` into it with their time (`FILLED` becomes `COMPLETED`, `REJECTED` stays `REJECTED`, and any other status stops the migration instead of guessing), deletes them from `orders` and restricts `side` to `BUY` and `SELL`. It runs in one transaction, and the seed portfolio does not change.
 - **Rejected withdrawals:** a withdrawal above the available pesos (open limit buys keep what they reserve) is stored `REJECTED` with `rejectionReason` `INSUFFICIENT_CASH` and answered with 201, like a rejected order. An amount that is not positive or has more than 2 decimals is a 400 and stores nothing.
 - **The same lock:** a withdrawal locks the user's row as an order does, so a withdrawal and a buy at the same time cannot spend the same pesos.
