@@ -11,6 +11,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,5 +57,20 @@ public class OrderService {
     @Transactional(readOnly = true)
     public Order get(Integer orderId) {
         return orders.findById(orderId).orElseThrow(() -> new NotFoundException("Order", orderId));
+    }
+
+    /**
+     * A page of the user's orders, newest first (id breaks ties between orders of the same second), optionally
+     * only those in {@code status}. Any sort in {@code pageable} is ignored.
+     */
+    @Transactional(readOnly = true)
+    public Page<Order> listOf(Integer userId, Optional<OrderStatus> status, Pageable pageable) {
+        if (!users.existsById(userId)) {
+            throw new NotFoundException("User", userId);
+        }
+        Pageable newestFirst = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                Sort.by(Sort.Order.desc("datetime"), Sort.Order.desc("id")));
+        return status.map(s -> orders.findByUserIdAndStatus(userId, s, newestFirst))
+                .orElseGet(() -> orders.findByUserId(userId, newestFirst));
     }
 }
