@@ -28,21 +28,22 @@ class OrderTest {
         return Money.of(Currencies.ARS, new BigDecimal(amount));
     }
 
-    /** A user who deposited {@code pesos} and holds no shares. */
-    private static Ledger cash(int pesos) {
-        return Ledger.replay(Currencies.ARS, List.of(Order.deposit(USER, PESOS, pesos, EARLIER)));
+    private static List<Transfer> deposited(int pesos) {
+        return List.of(Transfer.deposit(USER, ars(String.valueOf(pesos)), EARLIER));
     }
 
-    /** The orders of a user who spent all their cash on {@code shares} PAMP at 100. */
-    private static List<Order> boughtPamp(int shares) {
-        Order deposit = Order.deposit(USER, PESOS, shares * 100, EARLIER);
-        Order buy = Order.place(market(OrderSide.BUY, shares), PAMP, Optional.of(ars("100")),
-                Ledger.replay(Currencies.ARS, List.of(deposit)), EARLIER);
-        return List.of(deposit, buy);
+    /** A user who deposited {@code pesos} and holds no shares. */
+    private static Ledger cash(int pesos) {
+        return Ledger.replay(Currencies.ARS, deposited(pesos), List.of());
+    }
+
+    /** The buy of a user who spent all their cash on {@code shares} PAMP at 100. */
+    private static Order boughtPamp(int shares) {
+        return Order.place(market(OrderSide.BUY, shares), PAMP, Optional.of(ars("100")), cash(shares * 100), EARLIER);
     }
 
     private static Ledger holding(int shares) {
-        return Ledger.replay(Currencies.ARS, boughtPamp(shares));
+        return Ledger.replay(Currencies.ARS, deposited(shares * 100), List.of(boughtPamp(shares)));
     }
 
     private static PlaceOrder market(OrderSide side, int size) {
@@ -126,10 +127,11 @@ class OrderTest {
 
     @Test
     void openSellsCountAgainstTheShares() {
-        List<Order> history = new ArrayList<>(boughtPamp(5));
-        history.add(place(limit(OrderSide.SELL, 3, "1000"), "925.85", Ledger.replay(Currencies.ARS, history)));
+        List<Order> history = new ArrayList<>(List.of(boughtPamp(5)));
+        history.add(place(limit(OrderSide.SELL, 3, "1000"), "925.85",
+                Ledger.replay(Currencies.ARS, deposited(500), history)));
 
-        assertThat(place(market(OrderSide.SELL, 3), "925.85", Ledger.replay(Currencies.ARS, history))
+        assertThat(place(market(OrderSide.SELL, 3), "925.85", Ledger.replay(Currencies.ARS, deposited(500), history))
                 .getRejectionReason()).isEqualTo(RejectionReason.INSUFFICIENT_SHARES);
     }
 

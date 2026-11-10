@@ -33,11 +33,14 @@ class IdempotentOrdersTest {
     @Autowired
     private JdbcClient jdbc;
 
+    @Autowired
+    private TransferService transfers;
+
     private TestAccounts accounts;
 
     @BeforeEach
     void setUp() {
-        accounts = new TestAccounts(jdbc);
+        accounts = new TestAccounts(jdbc, transfers);
     }
 
     private MvcTestResult place(String key, String json) {
@@ -73,7 +76,7 @@ class IdempotentOrdersTest {
                 .bodyJson().isLenientlyEqualTo("""
                         {"id": %d, "status": "FILLED", "size": 1}
                         """.formatted(idOf(first)));
-        assertThat(accounts.tradeCount(user)).isEqualTo(1);
+        assertThat(accounts.orderCount(user)).isEqualTo(1);
     }
 
     @Test
@@ -86,7 +89,7 @@ class IdempotentOrdersTest {
                         {"status": 422, "code": "IDEMPOTENCY_KEY_REUSED",
                          "detail": "Idempotency-Key buy-2 was already used for a different request"}
                         """);
-        assertThat(accounts.tradeCount(user)).isEqualTo(1);
+        assertThat(accounts.orderCount(user)).isEqualTo(1);
     }
 
     @Test
@@ -110,7 +113,7 @@ class IdempotentOrdersTest {
         place("\"buy-4\"", buy(user, 1));
 
         assertThat(place("buy-4", buy(user, 1))).hasHeader(IdempotencyKey.REPLAYED_HEADER, "true");
-        assertThat(accounts.tradeCount(user)).isEqualTo(1);
+        assertThat(accounts.orderCount(user)).isEqualTo(1);
     }
 
     @Test
@@ -123,7 +126,7 @@ class IdempotentOrdersTest {
 
         assertThat(bobOrder).hasStatus(HttpStatus.CREATED).doesNotContainHeader(IdempotencyKey.REPLAYED_HEADER);
         assertThat(idOf(bobOrder)).isNotEqualTo(idOf(aliceOrder));
-        assertThat(accounts.tradeCount(bob)).isEqualTo(1);
+        assertThat(accounts.orderCount(bob)).isEqualTo(1);
     }
 
     @ParameterizedTest
@@ -135,7 +138,7 @@ class IdempotentOrdersTest {
                 .bodyJson().isLenientlyEqualTo("""
                         {"code": "VALIDATION_FAILED", "errors": [{"field": "Idempotency-Key"}]}
                         """);
-        assertThat(accounts.tradeCount(user)).isZero();
+        assertThat(accounts.orderCount(user)).isZero();
     }
 
     @Test
@@ -143,7 +146,7 @@ class IdempotentOrdersTest {
         int user = accounts.fundedUser(10_000);
 
         assertThat(place("x".repeat(65), buy(user, 1))).hasStatus(HttpStatus.BAD_REQUEST);
-        assertThat(accounts.tradeCount(user)).isZero();
+        assertThat(accounts.orderCount(user)).isZero();
     }
 
     @Test
@@ -155,7 +158,7 @@ class IdempotentOrdersTest {
 
         assertThat(second).hasStatus(HttpStatus.CREATED).doesNotContainHeader(IdempotencyKey.REPLAYED_HEADER);
         assertThat(idOf(second)).isNotEqualTo(idOf(first));
-        assertThat(accounts.tradeCount(user)).isEqualTo(2);
+        assertThat(accounts.orderCount(user)).isEqualTo(2);
     }
 
     /** The deposit in between would let the order fill now: the replay must not decide it again. */
@@ -170,7 +173,7 @@ class IdempotentOrdersTest {
                 .bodyJson().isLenientlyEqualTo("""
                         {"id": %d, "status": "REJECTED", "rejectionReason": "INSUFFICIENT_CASH"}
                         """.formatted(orderId));
-        assertThat(accounts.tradeCount(user)).isEqualTo(1);
+        assertThat(accounts.orderCount(user)).isEqualTo(1);
     }
 
     @Test

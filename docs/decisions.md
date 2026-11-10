@@ -4,18 +4,18 @@ Por qué el proyecto está hecho como está. Cómo levantarlo está en el [READM
 
 ## Arquitectura
 
-El sistema tiene dos mitades con necesidades distintas, y cada una usa el estilo que le sirve. Enviar y cancelar órdenes es un problema de reglas (estados, rechazos, saldo), así que se modela con DDD. El portfolio y la búsqueda son lecturas: se calculan a partir de los datos, sin pasar por el modelo de dominio.
+El sistema tiene dos mitades con necesidades distintas, y cada una usa el estilo que le sirve. Enviar y cancelar órdenes, o mover pesos, es un problema de reglas (estados, rechazos, saldo), así que se modela con DDD. El portfolio y la búsqueda son lecturas: se calculan a partir de los datos, sin pasar por el modelo de dominio.
 
-- **Escritura (DDD):** la orden es un agregado que controla sus propias transiciones (solo se cancela desde `NEW`), y el saldo se valida con el usuario bloqueado, para que dos órdenes simultáneas no gasten el mismo dinero.
-- **Lectura (proyección):** el portfolio se recalcula desde las órdenes ejecutadas, con costo promedio exacto.
+- **Escritura (DDD):** la orden y la transferencia son agregados que deciden su propio estado (una orden solo se cancela desde `NEW`, un retiro sin fondos queda `REJECTED`), y el saldo se valida con el usuario bloqueado, para que dos operaciones simultáneas no gasten el mismo dinero.
+- **Lectura (proyección):** el portfolio se recalcula desde las transferencias y las órdenes ejecutadas, con costo promedio exacto.
 - **Sin capa de dominio aislada:** las entidades JPA son el modelo. Separarlas de Spring agregaría puertos y mappers sin beneficio a este tamaño.
-- **Dos módulos:** `market` (instrumentos y precios) y `trading` (usuarios, órdenes y portfolio). `trading` usa `market`, nunca al revés.
+- **Dos módulos:** `market` (instrumentos y precios) y `trading` (usuarios, transferencias, órdenes y portfolio). `trading` usa `market`, nunca al revés.
 
 ## Base de datos
 
 El esquema provisto es la versión 1. Al arrancar, la aplicación toma cualquier base sin historial como versión 1 y aplica las migraciones pendientes (Flyway), así que la base local, los tests y la base provista siguen el mismo camino. Hibernate solo valida que las entidades coincidan con las tablas.
 
-- **Consecuencia:** el primer arranque contra la base provista la modifica: agrega índices y, más adelante, columnas, y crea la tabla `flyway_schema_history`.
+- **Consecuencia:** el primer arranque contra la base provista la modifica: agrega índices y columnas, mueve los movimientos de pesos de `orders` a la tabla nueva `transfers` (V5, ver [Transferencias](#transferencias)) y crea la tabla `flyway_schema_history`.
 - **Migraciones** en `src/main/resources/db/migration`. `db/01-database.sql` queda como el estado provisto: la base local y la de tests lo cargan al crearse.
 - **Misma versión que la base provista:** Postgres 18.6 en la base local y en los tests, para que lo que se prueba sea lo que corre.
 
@@ -39,7 +39,7 @@ Busca el texto en el ticker o en el nombre, sin distinguir mayúsculas, y ordena
 
 ## Portfolio
 
-Se calcula recorriendo las órdenes del usuario en orden cronológico: las ejecutadas mueven pesos y acciones, y las abiertas (`NEW`) solo los reservan.
+Se calcula a partir de las transferencias completadas, que mueven pesos, y de las órdenes del usuario recorridas en orden cronológico: las ejecutadas mueven pesos y acciones, y las abiertas (`NEW`) solo los reservan. Las transferencias no necesitan ese orden porque solo suman o restan pesos.
 
 - **Pesos disponibles:** el cash menos lo comprometido en compras límite abiertas, porque eso ya no se puede usar para operar. El valor total sí lo incluye, porque sigue siendo del usuario.
 - **Rendimiento:** el total se mide contra el costo promedio exacto, que no cambia con una venta parcial. El diario compara `close` con `previousClose`. Ambos van en porcentaje.
@@ -49,13 +49,22 @@ Se calcula recorriendo las órdenes del usuario en orden cronológico: las ejecu
 
 ## Órdenes
 
-Una orden de mercado se ejecuta al último `close` y queda `FILLED`. Una límite queda `NEW` a su precio y reserva pesos o acciones hasta que se cancela: el mercado no se simula, así que nada la cruza contra un precio. Con un monto en pesos se compran solo acciones enteras.
+Una orden de mercado se ejecuta al último `close` y queda `FILLED`. Una límite queda `NEW` a su precio y reserva pesos o acciones hasta que se cancela: el mercado no se simula, así que nada la cruza contra un precio. Con un monto en pesos se compran solo acciones enteras. El `side` es `BUY` o `SELL`: mover pesos es una [transferencia](#transferencias).
 
-- **Dos tipos de error:** un pedido que no tiene sentido (JSON roto, cantidad y monto a la vez, una orden límite sin precio, mover pesos) es un 400 y no guarda nada. Una orden válida que el usuario no puede cubrir se guarda como `REJECTED` y responde 201 con su `rejectionReason` (`INSUFFICIENT_CASH`, `INSUFFICIENT_SHARES` contando las ventas abiertas, `AMOUNT_BELOW_ONE_SHARE` o `NO_MARKET_DATA`), porque así la describe el enunciado: el mercado la rechaza y queda en el historial. Un monto que no alcanza para una acción es un rechazo y no un 400, porque depende del precio de ese momento.
+- **Dos tipos de error:** un pedido que no tiene sentido (JSON roto, cantidad y monto a la vez, una orden límite sin precio, un `side` como `CASH_IN`) es un 400 y no guarda nada. Una orden válida que el usuario no puede cubrir se guarda como `REJECTED` y responde 201 con su `rejectionReason` (`INSUFFICIENT_CASH`, `INSUFFICIENT_SHARES` contando las ventas abiertas, `AMOUNT_BELOW_ONE_SHARE` o `NO_MARKET_DATA`), porque así la describe el enunciado: el mercado la rechaza y queda en el historial. Un monto que no alcanza para una acción es un rechazo y no un 400, porque depende del precio de ese momento.
 - **El motivo se guarda** en la columna `rejectionReason` (migración V3), para poder auditar los rechazos; es `null` en las demás órdenes.
 - **Un usuario a la vez:** el envío bloquea la fila del usuario antes de calcular su saldo, así dos órdenes simultáneas no gastan los mismos pesos. La cancelación bloquea la orden, para que dos cancelaciones no la vean abierta a la vez.
 - **Hora en UTC:** `datetime` es un instante (`timestamptz`) y la API lo devuelve en ISO-8601 UTC (`2026-11-10T14:30:00Z`). Las órdenes provistas tenían la hora de Buenos Aires sin zona (de 11:13 a 16:11, el horario del mercado local); la migración V4 las convirtió una sola vez, sin cambiar su orden. La hora sale de un único `Clock`, que los tests fijan.
 - **Cancelar no verifica al dueño:** no se comprueba que la orden sea de quien lo pide, porque no hay autenticación, y un `userId` enviado por el cliente solo parecería seguridad.
+
+## Transferencias
+
+Un depósito o un retiro de pesos es una transferencia, con su propia tabla (`transfers`), su agregado y su endpoint (`/users/{userId}/transfers`). El enunciado permite modelarlas como órdenes `CASH_IN`/`CASH_OUT` y calcular el cash desde la tabla `orders`; este proyecto se aparta de eso a propósito, porque una transferencia no tiene instrumento, precio ni mercado. Como orden había que llenar esas columnas con valores de relleno (el instrumento ARS, precio 1, el monto en `size`) y cada regla de órdenes tenía que excluir esos `side`.
+
+- **Migración V5:** crea `transfers`, mueve ahí los movimientos de pesos de `orders` con su hora (`FILLED` pasa a `COMPLETED`, `REJECTED` sigue `REJECTED`, y cualquier otro estado frena la migración en vez de adivinar), los borra de `orders` y limita `side` a `BUY` y `SELL`. Corre en una sola transacción, y el portfolio del seed no cambia.
+- **Retiros rechazados:** un retiro mayor a los pesos disponibles (las compras límite abiertas siguen reservando lo suyo) se guarda `REJECTED` con `rejectionReason` `INSUFFICIENT_CASH` y responde 201, igual que una orden rechazada. Un monto que no es positivo o tiene más de 2 decimales es un 400 y no guarda nada.
+- **El mismo bloqueo:** un retiro bloquea la fila del usuario igual que una orden, así un retiro y una compra simultáneos no gastan los mismos pesos.
+- **Historial:** `GET /users/{userId}/transfers` las devuelve de la más nueva a la más vieja. Una transferencia de otro usuario responde 404, igual que una que no existe.
 
 ## Idempotencia
 
