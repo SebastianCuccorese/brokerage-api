@@ -1,12 +1,9 @@
 package dev.cuccorese.brokerage.shared;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ProblemDetail;
-import org.springframework.web.ErrorResponseException;
+/** A resource the request names does not exist. */
+public non-sealed class NotFoundException extends DomainException {
 
-public class NotFoundException extends ErrorResponseException {
-
-    public NotFoundException(String resource, Object id) {
-        super(HttpStatus.NOT_FOUND, ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, resource + " " + id + " not found"), null);
+    public NotFoundException(ErrorCode code, String resource, Object id) {
+        super(code, resource + " " + id + " not found");
     }
 }

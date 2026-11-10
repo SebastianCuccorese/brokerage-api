@@ -12,9 +12,6 @@ spring:
     # The provided database is version 1: baselining it lets V2+ apply on top of it.
     baseline-on-migrate: true
     baseline-version: 1
-  mvc:
-    problemdetails:
-      enabled: true
   jackson:
     deserialization:
       # A share count of 1.5 is an error, not 1.
