@@ -11,15 +11,15 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  jackson:
+    deserialization:
+      # A share count of 1.5 is an error, not 1.
+      accept-float-as-int: false
   jpa:
     open-in-view: false
     hibernate:
       # The schema is owned by the provided database; the app never creates or alters it.
       ddl-auto: validate
-    properties:
-      hibernate:
-        jdbc:
-          time_zone: UTC
 
 management:
   endpoints:
