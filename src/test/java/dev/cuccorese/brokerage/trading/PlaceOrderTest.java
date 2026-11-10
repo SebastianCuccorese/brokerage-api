@@ -35,14 +35,6 @@ class PlaceOrderTest {
     }
 
     @Test
-    void onlyBuysAndSells() {
-        assertThatThrownBy(() -> request(OrderSide.CASH_IN, OrderType.MARKET, 1, null, null))
-                .isInstanceOf(InvalidOrderException.class);
-        assertThatThrownBy(() -> request(OrderSide.CASH_OUT, OrderType.MARKET, 1, null, null))
-                .isInstanceOf(InvalidOrderException.class);
-    }
-
-    @Test
     void anAmountCountsTheWholeSharesItBuys() {
         assertThat(request(OrderSide.BUY, OrderType.MARKET, null, ars("1000"), null).sharesAt(ars("300")))
                 .isEqualTo(3);

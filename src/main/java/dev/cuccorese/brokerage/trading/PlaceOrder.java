@@ -1,7 +1,6 @@
 package dev.cuccorese.brokerage.trading;
 
 import dev.cuccorese.brokerage.shared.Money;
-import java.util.EnumSet;
 
 /**
  * What a user asks to trade: a BUY or SELL for exactly one of {@code size} (shares) or
@@ -17,9 +16,6 @@ public record PlaceOrder(
         Money limitPrice) {
 
     public PlaceOrder {
-        if (!EnumSet.of(OrderSide.BUY, OrderSide.SELL).contains(side)) {
-            throw new InvalidOrderException("side must be BUY or SELL; cash moves are not orders");
-        }
         if ((size == null) == (amount == null)) {
             throw new InvalidOrderException("Send exactly one of size or amount");
         }

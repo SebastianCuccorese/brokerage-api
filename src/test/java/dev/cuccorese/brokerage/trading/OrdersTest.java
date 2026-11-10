@@ -40,11 +40,14 @@ class OrdersTest {
     @Autowired
     private JdbcClient jdbc;
 
+    @Autowired
+    private TransferService transfers;
+
     private TestAccounts accounts;
 
     @BeforeEach
     void setUp() {
-        accounts = new TestAccounts(jdbc);
+        accounts = new TestAccounts(jdbc, transfers);
     }
 
     private MvcTestResult place(String json) {
@@ -294,7 +297,7 @@ class OrdersTest {
                 """.formatted(user)))
                 .hasStatus(HttpStatus.NOT_FOUND)
                 .bodyJson().extractingPath("$.detail").isEqualTo("Instrument 999999 not found");
-        assertThat(accounts.orderCount(user)).isEqualTo(1);
+        assertThat(accounts.orderCount(user)).isZero();
     }
 
     @Test
