@@ -44,3 +44,7 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,db
+          show-components: always

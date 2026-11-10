@@ -64,6 +64,7 @@ La aplicación se despliega como una imagen de contenedor. Está en capas para q
 - **Configuración:** solo por variables de entorno (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`); la imagen no lleva secretos.
 - **Probes:** `/actuator/health/liveness` y `/actuator/health/readiness` para el orquestador, en el puerto de gestión (ver [Observabilidad](#observabilidad)).
 - **CI:** la imagen se construye en cada PR y se publica desde `main`. Se escanea con Trivy y falla ante vulnerabilidades críticas con arreglo disponible.
+- **Posible mejora:** un runtime recortado con jlink para reducir el tamaño de la imagen.
 
 ## Observabilidad
 
@@ -71,5 +72,5 @@ La aplicación publica sus métricas en formato Prometheus (`/actuator/prometheu
 
 - **Qué se mide:** JVM, peticiones HTTP (`http.server.requests`), pool de conexiones Hikari y Tomcat, todos con el tag `application=brokerage-api`.
 - **Puerto de gestión:** Actuator se sirve en el 8081 y la API en el 8080. Así las métricas y los probes no quedan expuestos a internet por el ingress de la API; solo los alcanza quien está dentro de la red.
-- **Liveness y readiness:** liveness dice si el proceso debe reiniciarse y readiness si puede recibir tráfico (incluye la base).
+- **Liveness y readiness:** liveness dice si el proceso debe reiniciarse y readiness si puede recibir tráfico (incluye la base). Liveness no depende de la base: una caída de la base no debe provocar el reinicio del pod.
 - **Negocio:** las métricas de órdenes llegan con el paso de logging de órdenes.

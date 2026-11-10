@@ -33,8 +33,13 @@ class HealthProbesTest {
 
     @Test
     void exposesLivenessAndReadinessProbesOnTheManagementPort() throws Exception {
-        assertThat(get(managementPort, "/actuator/health/liveness").statusCode()).isEqualTo(200);
-        assertThat(get(managementPort, "/actuator/health/readiness").statusCode()).isEqualTo(200);
+        var liveness = get(managementPort, "/actuator/health/liveness");
+        var readiness = get(managementPort, "/actuator/health/readiness");
+
+        assertThat(liveness.statusCode()).isEqualTo(200);
+        assertThat(liveness.body()).doesNotContain("\"db\"");
+        assertThat(readiness.statusCode()).isEqualTo(200);
+        assertThat(readiness.body()).contains("\"readinessState\"").containsPattern("\"db\":\\{\"status\":\"UP\"");
     }
 
     @Test
