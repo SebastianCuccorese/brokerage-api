@@ -55,3 +55,12 @@ A market order executes at the latest `close` and is `FILLED`; a limit order sta
 - **One user at a time:** placing an order locks the user's row before computing their balance, so two concurrent orders are decided one after the other and cannot spend the same pesos. Cancelling locks the order, so two cancels cannot both see it open.
 - **Local time:** `datetime` is stored in Buenos Aires time without a zone, like the provided orders (11:13 to 16:11, the local market hours). The clock is injected, so tests fix the time.
 - **Limit orders are not executed:** they stay `NEW` and reserve pesos or shares until cancelled. The market is not simulated, so nothing matches them against a price.
+
+## Logs
+
+Each request carries an id (`X-Request-Id`) that appears on all its log lines and is returned in the response, to follow a call end to end. Business events are logged at INFO (they come with orders); never emails or secrets.
+
+- **Request id:** the client's value is used only when it is 1 to 64 characters of `[A-Za-z0-9._-]`; otherwise a UUID is generated. It is validated so a client cannot inject line breaks or fake text into the logs.
+- **Locally:** readable text, with the id in brackets on every line.
+- **Log platform:** the `json` profile emits ECS-format JSON (Spring Boot's built-in support), with the id as the `requestId` field.
+- **No distributed tracing:** with a single service it is not worth its cost.

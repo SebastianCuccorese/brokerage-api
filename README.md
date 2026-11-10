@@ -1,5 +1,7 @@
 # brokerage-api
 
+[![CI](https://github.com/SebastianCuccorese/brokerage-api/actions/workflows/ci.yml/badge.svg)](https://github.com/SebastianCuccorese/brokerage-api/actions/workflows/ci.yml)
+
 API REST de un broker: portfolio, búsqueda de instrumentos y órdenes de mercado y límite. Java 21 y Spring Boot 4. · [English](README.en.md)
 
 Las decisiones de diseño y el porqué de cada una están en [docs/decisions.md](docs/decisions.md).
@@ -17,7 +19,7 @@ docker compose up -d
 
 **Con la base provista:** copiá `.env.example` a `.env`, completá la conexión y corré `./mvnw spring-boot:run`. El `.env` está en `.gitignore` y nunca se commitea. Si existe, tiene prioridad sobre la base local.
 
-La API queda en `http://localhost:8080`.
+La API queda en `http://localhost:8080`. Los logs salen como texto legible; con `--spring.profiles.active=json` salen como JSON (ECS), para una plataforma de logs.
 
 ## Tests
 
@@ -36,6 +38,8 @@ Usan un Postgres descartable (Testcontainers) con los mismos datos, así que nec
 | POST | `/orders` | Envía una orden de compra o venta, de mercado o límite |
 | GET | `/orders/{orderId}` | Devuelve una orden |
 | POST | `/orders/{orderId}/cancel` | Cancela una orden abierta (`NEW`) |
+
+Documentación interactiva de la API: <http://localhost:8080/swagger-ui.html>
 
 Hay ejemplos listos para ejecutar en [`http/`](http/) (REST Client de VS Code o IntelliJ).
 

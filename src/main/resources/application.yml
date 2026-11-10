@@ -21,6 +21,14 @@ spring:
       # The schema is owned by the provided database; the app never creates or alters it.
       ddl-auto: validate
 
+app:
+  # Filtered from the POM at build time so the OpenAPI document reports the project version.
+  version: "@project.version@"
+
+logging:
+  pattern:
+    correlation: '%replace([%X{requestId:-}] ){"\[\] ", ""}'
+
 management:
   endpoints:
     web:

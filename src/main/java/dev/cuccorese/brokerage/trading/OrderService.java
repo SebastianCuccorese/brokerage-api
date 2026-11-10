@@ -1,9 +1,9 @@
 package dev.cuccorese.brokerage.trading;
 
-import dev.cuccorese.brokerage.market.DailyPrice;
-import dev.cuccorese.brokerage.market.DailyPriceRepository;
 import dev.cuccorese.brokerage.market.Instrument;
 import dev.cuccorese.brokerage.market.InstrumentRepository;
+import dev.cuccorese.brokerage.market.Quote;
+import dev.cuccorese.brokerage.market.QuoteRepository;
 import dev.cuccorese.brokerage.shared.Money;
 import dev.cuccorese.brokerage.shared.NotFoundException;
 import java.time.Clock;
@@ -21,7 +21,7 @@ public class OrderService {
 
     private final UserRepository users;
     private final InstrumentRepository instruments;
-    private final DailyPriceRepository dailyPrices;
+    private final QuoteRepository quotes;
     private final OrderRepository orders;
     private final Clock clock;
 
@@ -35,9 +35,9 @@ public class OrderService {
                 .orElseThrow(() -> new NotFoundException("User", request.userId()));
         Instrument instrument = instruments.findById(request.instrumentId())
                 .orElseThrow(() -> new NotFoundException("Instrument", request.instrumentId()));
-        Optional<Money> lastClose = dailyPrices.findLatest(List.of(instrument.getId())).stream()
+        Optional<Money> lastClose = quotes.findLatest(List.of(instrument.getId())).stream()
                 .findFirst()
-                .map(DailyPrice::getClose);
+                .map(Quote::getClose);
         LocalDateTime now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.SECONDS);
         return orders.save(Order.place(request, instrument, lastClose, orders.ledgerOf(request.userId()), now));
     }

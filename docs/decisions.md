@@ -55,3 +55,12 @@ Una orden de mercado se ejecuta al último `close` y queda `FILLED`; una límite
 - **Un usuario a la vez:** el envío bloquea la fila del usuario antes de calcular su saldo, así dos órdenes simultáneas se deciden una después de la otra y no gastan los mismos pesos. La cancelación bloquea la orden, para que dos cancelaciones no la vean abierta a la vez.
 - **Hora local:** `datetime` se guarda en hora de Buenos Aires y sin zona, como las órdenes provistas (de 11:13 a 16:11, el horario del mercado local). El reloj se inyecta, así los tests fijan la hora.
 - **Las órdenes límite no se ejecutan:** quedan `NEW` y reservan pesos o acciones hasta que se cancelan. El mercado no se simula, así que nada las cruza contra un precio.
+
+## Logs
+
+Cada request lleva un id (`X-Request-Id`) que aparece en todas sus líneas de log y se devuelve en la respuesta, para seguir un pedido de punta a punta. Se registran los eventos de negocio a nivel INFO (llegan con las órdenes); nunca emails ni secretos.
+
+- **Id de request:** se toma el que manda el cliente solo si son 1 a 64 caracteres de `[A-Za-z0-9._-]`; si no, se genera un UUID. Se valida para que un cliente no pueda inyectar saltos de línea o texto falso en los logs.
+- **Local:** texto legible, con el id entre corchetes en cada línea.
+- **Plataforma de logs:** el perfil `json` emite JSON en formato ECS (el soporte de Spring Boot), con el id como campo `requestId`.
+- **Sin tracing distribuido:** con un solo servicio no aporta lo que cuesta.
