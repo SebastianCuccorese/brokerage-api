@@ -1,5 +1,7 @@
 # brokerage-api
 
+[![CI](https://github.com/SebastianCuccorese/brokerage-api/actions/workflows/ci.yml/badge.svg)](https://github.com/SebastianCuccorese/brokerage-api/actions/workflows/ci.yml)
+
 API REST de un broker: portfolio, búsqueda de instrumentos y órdenes de mercado y límite. Java 21 y Spring Boot 4. · [English](README.en.md)
 
 Las decisiones de diseño y el porqué de cada una están en [docs/decisions.md](docs/decisions.md).
