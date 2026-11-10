@@ -29,7 +29,7 @@ class OrderTest {
     }
 
     private static List<Transfer> deposited(int pesos) {
-        return List.of(Transfer.deposit(USER, ars(String.valueOf(pesos)), EARLIER));
+        return List.of(Transfer.cashIn(USER, ars(String.valueOf(pesos)), EARLIER));
     }
 
     /** A user who deposited {@code pesos} and holds no shares. */

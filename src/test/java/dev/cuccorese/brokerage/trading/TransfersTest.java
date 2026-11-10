@@ -54,13 +54,13 @@ class TransfersTest {
 
     private MvcTestResult deposit(int userId, String amount) {
         return transfer(userId, """
-                {"type": "DEPOSIT", "amount": %s}
+                {"type": "CASH_IN", "amount": %s}
                 """.formatted(amount));
     }
 
     private MvcTestResult withdraw(int userId, String amount) {
         return transfer(userId, """
-                {"type": "WITHDRAWAL", "amount": %s}
+                {"type": "CASH_OUT", "amount": %s}
                 """.formatted(amount));
     }
 
@@ -81,7 +81,7 @@ class TransfersTest {
         assertThat(result).hasStatus(HttpStatus.CREATED)
                 .hasHeader("Location", "/users/" + user + "/transfers/" + idOf(result))
                 .bodyJson().isStrictlyEqualTo("""
-                        {"id": %d, "userId": %d, "type": "DEPOSIT", "amount": {"currency": "ARS", "amount": 10000.50},
+                        {"id": %d, "userId": %d, "type": "CASH_IN", "amount": {"currency": "ARS", "amount": 10000.50},
                          "status": "COMPLETED", "rejectionReason": null, "datetime": "2026-11-10T14:30:00Z"}
                         """.formatted(idOf(result), user));
         assertThat(portfolio(user)).hasStatusOk().bodyJson().isLenientlyEqualTo("""
@@ -96,7 +96,7 @@ class TransfersTest {
 
         assertThat(withdraw(user, "2500")).hasStatus(HttpStatus.CREATED)
                 .bodyJson().isLenientlyEqualTo("""
-                        {"type": "WITHDRAWAL", "amount": {"currency": "ARS", "amount": 2500.00},
+                        {"type": "CASH_OUT", "amount": {"currency": "ARS", "amount": 2500.00},
                          "status": "COMPLETED", "rejectionReason": null}
                         """);
         assertThat(portfolio(user)).bodyJson().isLenientlyEqualTo("""
@@ -116,7 +116,7 @@ class TransfersTest {
 
         assertThat(result).hasStatus(HttpStatus.CREATED)
                 .bodyJson().isLenientlyEqualTo("""
-                        {"type": "WITHDRAWAL", "amount": {"currency": "ARS", "amount": 500.00},
+                        {"type": "CASH_OUT", "amount": {"currency": "ARS", "amount": 500.00},
                          "status": "REJECTED", "rejectionReason": "INSUFFICIENT_CASH"}
                         """);
         assertThat(mvc.get().uri("/users/{userId}/transfers/{id}", user, idOf(result))).hasStatusOk()
@@ -134,9 +134,9 @@ class TransfersTest {
     void theSeedCashMovementsAreTheSeedUsersTransfersNewestFirst() {
         assertThat(mvc.get().uri("/users/1/transfers")).hasStatusOk()
                 .bodyJson().isStrictlyEqualTo("""
-                        [{"id": 2, "userId": 1, "type": "WITHDRAWAL", "amount": {"currency": "ARS", "amount": 100000.00},
+                        [{"id": 2, "userId": 1, "type": "CASH_OUT", "amount": {"currency": "ARS", "amount": 100000.00},
                           "status": "COMPLETED", "rejectionReason": null, "datetime": "2023-07-13T15:31:20Z"},
-                         {"id": 1, "userId": 1, "type": "DEPOSIT", "amount": {"currency": "ARS", "amount": 1000000.00},
+                         {"id": 1, "userId": 1, "type": "CASH_IN", "amount": {"currency": "ARS", "amount": 1000000.00},
                           "status": "COMPLETED", "rejectionReason": null, "datetime": "2023-07-12T15:11:20Z"}]
                         """);
     }
@@ -163,31 +163,31 @@ class TransfersTest {
     static Stream<Arguments> invalidTransfers() {
         return Stream.of(
                 Arguments.of("malformed JSON", "MALFORMED_REQUEST", """
-                        {"type": "DEPOSIT",
+                        {"type": "CASH_IN",
                         """),
                 Arguments.of("missing type", "VALIDATION_FAILED", """
                         {"amount": 100}
                         """),
                 Arguments.of("unknown type", "MALFORMED_REQUEST", """
-                        {"type": "CASH_IN", "amount": 100}
+                        {"type": "DIVIDEND", "amount": 100}
                         """),
                 Arguments.of("missing amount", "VALIDATION_FAILED", """
-                        {"type": "DEPOSIT"}
+                        {"type": "CASH_IN"}
                         """),
                 Arguments.of("zero amount", "VALIDATION_FAILED", """
-                        {"type": "DEPOSIT", "amount": 0}
+                        {"type": "CASH_IN", "amount": 0}
                         """),
                 Arguments.of("negative amount", "VALIDATION_FAILED", """
-                        {"type": "WITHDRAWAL", "amount": -100}
+                        {"type": "CASH_OUT", "amount": -100}
                         """),
                 Arguments.of("amount with three decimals", "VALIDATION_FAILED", """
-                        {"type": "DEPOSIT", "amount": 100.001}
+                        {"type": "CASH_IN", "amount": 100.001}
                         """),
                 Arguments.of("amount wider than its column", "VALIDATION_FAILED", """
-                        {"type": "DEPOSIT", "amount": 1234567890123}
+                        {"type": "CASH_IN", "amount": 1234567890123}
                         """),
                 Arguments.of("amount that is not a number", "MALFORMED_REQUEST", """
-                        {"type": "DEPOSIT", "amount": "lots"}
+                        {"type": "CASH_IN", "amount": "lots"}
                         """));
     }
 

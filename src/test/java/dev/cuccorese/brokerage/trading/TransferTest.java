@@ -31,14 +31,14 @@ class TransferTest {
     }
 
     private static Ledger cash(String pesos) {
-        return ledger(List.of(Transfer.deposit(USER, ars(pesos), EARLIER)), List.of());
+        return ledger(List.of(Transfer.cashIn(USER, ars(pesos), EARLIER)), List.of());
     }
 
     @Test
     void aDepositIsCompletedAndAddsToTheCash() {
-        Transfer deposit = Transfer.deposit(USER, ars("1000.50"), NOW);
+        Transfer deposit = Transfer.cashIn(USER, ars("1000.50"), NOW);
 
-        assertThat(deposit.getType()).isEqualTo(TransferType.DEPOSIT);
+        assertThat(deposit.getType()).isEqualTo(TransferType.CASH_IN);
         assertThat(deposit.getStatus()).isEqualTo(TransferStatus.COMPLETED);
         assertThat(deposit.getAmount()).isEqualTo(ars("1000.50"));
         assertThat(deposit.getDatetime()).isEqualTo(NOW);
@@ -48,34 +48,34 @@ class TransferTest {
 
     @Test
     void aWithdrawalMayTakeExactlyTheAvailableCashButNotMore() {
-        Transfer all = Transfer.withdraw(USER, ars("1000"), cash("1000"), NOW);
+        Transfer all = Transfer.cashOut(USER, ars("1000"), cash("1000"), NOW);
         assertThat(all.getStatus()).isEqualTo(TransferStatus.COMPLETED);
         assertThat(all.getRejectionReason()).isNull();
 
-        Transfer tooMuch = Transfer.withdraw(USER, ars("1000.01"), cash("1000"), NOW);
-        assertThat(tooMuch.getType()).isEqualTo(TransferType.WITHDRAWAL);
+        Transfer tooMuch = Transfer.cashOut(USER, ars("1000.01"), cash("1000"), NOW);
+        assertThat(tooMuch.getType()).isEqualTo(TransferType.CASH_OUT);
         assertThat(tooMuch.getStatus()).isEqualTo(TransferStatus.REJECTED);
         assertThat(tooMuch.getRejectionReason()).isEqualTo(TransferRejectionReason.INSUFFICIENT_CASH);
     }
 
     @Test
     void openLimitBuysKeepTheCashTheyReserve() {
-        List<Transfer> deposits = List.of(Transfer.deposit(USER, ars("1000"), EARLIER));
+        List<Transfer> deposits = List.of(Transfer.cashIn(USER, ars("1000"), EARLIER));
         Order openBuy = Order.place(new PlaceOrder(USER, PAMP.getId(), OrderSide.BUY, OrderType.LIMIT, 1, null,
                 ars("600")), PAMP, Optional.empty(), ledger(deposits, List.of()), EARLIER);
         Ledger reserved = ledger(deposits, List.of(openBuy));
 
-        assertThat(Transfer.withdraw(USER, ars("400"), reserved, NOW).getStatus())
+        assertThat(Transfer.cashOut(USER, ars("400"), reserved, NOW).getStatus())
                 .isEqualTo(TransferStatus.COMPLETED);
-        assertThat(Transfer.withdraw(USER, ars("400.01"), reserved, NOW).getRejectionReason())
+        assertThat(Transfer.cashOut(USER, ars("400.01"), reserved, NOW).getRejectionReason())
                 .isEqualTo(TransferRejectionReason.INSUFFICIENT_CASH);
     }
 
     @Test
     void onlyCompletedWithdrawalsTakeCash() {
-        Transfer deposit = Transfer.deposit(USER, ars("1000"), EARLIER);
-        Transfer completed = Transfer.withdraw(USER, ars("300"), cash("1000"), NOW);
-        Transfer rejected = Transfer.withdraw(USER, ars("5000"), cash("1000"), NOW);
+        Transfer deposit = Transfer.cashIn(USER, ars("1000"), EARLIER);
+        Transfer completed = Transfer.cashOut(USER, ars("300"), cash("1000"), NOW);
+        Transfer rejected = Transfer.cashOut(USER, ars("5000"), cash("1000"), NOW);
 
         Ledger ledger = ledger(List.of(deposit, completed, rejected), List.of());
 
@@ -84,10 +84,10 @@ class TransferTest {
 
     @Test
     void anAmountMustBePositive() {
-        assertThatThrownBy(() -> Transfer.deposit(USER, ars("0"), NOW))
+        assertThatThrownBy(() -> Transfer.cashIn(USER, ars("0"), NOW))
                 .isInstanceOf(InvalidRequestException.class)
                 .hasFieldOrPropertyWithValue("code", ErrorCode.TRANSFER_AMOUNT_NOT_POSITIVE);
-        assertThatThrownBy(() -> Transfer.withdraw(USER, ars("-1"), cash("1000"), NOW))
+        assertThatThrownBy(() -> Transfer.cashOut(USER, ars("-1"), cash("1000"), NOW))
                 .isInstanceOf(InvalidRequestException.class);
     }
 }
