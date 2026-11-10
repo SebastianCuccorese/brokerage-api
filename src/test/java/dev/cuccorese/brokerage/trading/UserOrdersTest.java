@@ -124,6 +124,8 @@ class UserOrdersTest {
     @Test
     void anUnknownUserIsNotFound() {
         assertThat(orders(999_999)).hasStatus(HttpStatus.NOT_FOUND)
-                .bodyJson().extractingPath("$.detail").isEqualTo("User 999999 not found");
+                .bodyJson().isLenientlyEqualTo("""
+                        {"status": 404, "code": "USER_NOT_FOUND", "detail": "User 999999 not found"}
+                        """);
     }
 }

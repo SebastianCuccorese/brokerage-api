@@ -60,6 +60,15 @@ A market order executes at the latest `close` and is `FILLED`. A limit order sta
 - **Listing:** `GET /users/{userId}/orders` returns the user's orders, newest first (time, then descending id for equal times), paginated, in the same format as a single order. An optional `status` filters by state; a value that does not exist is a 400 and an unknown user a 404.
 - **Cancel does not check the owner:** nothing verifies that the order belongs to the caller, because there is no authentication, and a `userId` sent by the client would only look like security.
 
+## Errors
+
+Every error response is a problem detail (RFC 9457) with a stable `code` and the request's `requestId`. The domain throws exceptions that carry their `code` but do not know what HTTP is; one `@RestControllerAdvice` turns each category into a status. That way a client switches on the `code`, and support finds the logs with the `requestId`.
+
+- **Categories:** `NotFoundException` (404), `InvalidRequestException` (400) and `ConflictException` (409), each with an `ErrorCode` (`ORDER_NOT_FOUND`, `ORDER_NOT_CANCELLABLE`, `SIZE_OR_AMOUNT_REQUIRED`...). A code is never renamed or given a new meaning; the text can change.
+- **Validation:** a 400 `VALIDATION_FAILED` with an `errors` list of `{field, message}`, so a client can mark the field. Broken JSON is `MALFORMED_REQUEST` and does not repeat Jackson's message.
+- **Framework errors** (method not allowed, unknown route) keep their status and gain the `requestId`, without a `code`.
+- **A 500 never leaks internals:** it answers `INTERNAL_ERROR` with a generic text asking to quote the `requestId`; the message and stack stay in the log, at ERROR level.
+
 ## Logs
 
 Each request carries an id (`X-Request-Id`) that appears on all its log lines and is returned in the response, to follow a call end to end. Business events are logged at INFO (they come with orders); never emails or secrets.
