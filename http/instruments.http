@@ -1,0 +1,7 @@
+@baseUrl = http://localhost:8080
+
+### Search by ticker or name
+GET {{baseUrl}}/instruments?query=banco
+
+### A blank query is rejected (400)
+GET {{baseUrl}}/instruments?query=%20
