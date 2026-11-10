@@ -1,5 +1,7 @@
 # brokerage-api
 
+[![CI](https://github.com/SebastianCuccorese/brokerage-api/actions/workflows/ci.yml/badge.svg)](https://github.com/SebastianCuccorese/brokerage-api/actions/workflows/ci.yml)
+
 API REST de un broker: portfolio, búsqueda de instrumentos y órdenes de mercado y límite. Java 21 y Spring Boot 4. · [English](README.en.md)
 
 Las decisiones de diseño y el porqué de cada una están en [docs/decisions.md](docs/decisions.md).
@@ -33,6 +35,8 @@ Usan un Postgres descartable (Testcontainers) con los mismos datos, así que nec
 |---|---|---|
 | GET | `/instruments?query=banco` | Busca instrumentos por ticker o nombre |
 | GET | `/users/{userId}/portfolio` | Valor total, pesos disponibles y posiciones |
+
+Documentación interactiva de la API: <http://localhost:8080/swagger-ui.html>
 
 Hay ejemplos listos para ejecutar en [`http/`](http/) (REST Client de VS Code o IntelliJ).
 
