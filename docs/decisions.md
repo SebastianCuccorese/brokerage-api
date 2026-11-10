@@ -16,7 +16,6 @@ El sistema tiene dos mitades con necesidades distintas, y cada una usa el estilo
 El esquema provisto es la versión 1. Al arrancar, la aplicación toma cualquier base sin historial como versión 1 y aplica las migraciones pendientes (Flyway), así que la base local, los tests y la base provista siguen el mismo camino. Hibernate solo valida que las entidades coincidan con las tablas.
 
 - **Consecuencia:** el primer arranque contra la base provista la modifica: agrega índices y, más adelante, columnas, y crea la tabla `flyway_schema_history`.
-- **Por qué Flyway ahora:** el esquema se va a extender y Hibernate valida, así que cada base tiene que llegar a la versión esperada antes de servir tráfico.
 - **Migraciones** en `src/main/resources/db/migration`. `db/01-database.sql` queda como el estado provisto: la base local y la de tests lo cargan al crearse.
 
 ## Dinero
