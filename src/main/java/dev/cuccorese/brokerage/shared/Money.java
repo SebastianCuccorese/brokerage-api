@@ -38,6 +38,10 @@ public record Money(Currency currency, BigDecimal amount) {
     }
 
     /** How many whole times {@code divisor} fits in this amount, e.g. shares affordable at a price. */
+    public Money dividedBy(long divisor) {
+        return new Money(currency, amount.divide(BigDecimal.valueOf(divisor), MathContext.DECIMAL64));
+    }
+
     public long wholeTimes(Money divisor) {
         return amount.divideToIntegralValue(sameCurrency(divisor).amount).longValueExact();
     }
