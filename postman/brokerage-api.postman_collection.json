@@ -1,0 +1,1463 @@
+{
+  "info": {
+    "_postman_id": "8277d60c-c99c-5191-ad16-5cd9978a2a53",
+    "name": "brokerage-api",
+    "description": "Requests for every endpoint of the brokerage API, with assertions. Run it top to bottom against a fresh local database (seed users 1-4; user 1 has the seed portfolio, the other users start empty). Re-runs pass: only the read-only seed portfolio is asserted with exact totals.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Instruments",
+      "item": [
+        {
+          "name": "Search by ticker",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Finds PAMP by ticker, case-insensitively, and saves its id as instrumentId for the order requests.",
+            "url": {
+              "raw": "{{baseUrl}}/instruments?query=pamp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "instruments"
+              ],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "pamp"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"one stock named PAMP\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.content.length).to.eql(1);",
+                  "    pm.expect(body.content[0].ticker).to.eql(\"PAMP\");",
+                  "    pm.expect(body.content[0].type).to.eql(\"STOCK\");",
+                  "    pm.expect(body.page.totalElements).to.eql(1);",
+                  "});",
+                  "pm.environment.set('instrumentId', pm.response.json().content[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search by name",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Matches part of the name, not only the ticker. Each result has id, ticker, name and type.",
+            "url": {
+              "raw": "{{baseUrl}}/instruments?query=banco",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "instruments"
+              ],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "banco"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"every result has banco in its name\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.content.length).to.be.above(0);",
+                  "    body.content.forEach(i => pm.expect(i.name.toLowerCase()).to.include(\"banco\"));",
+                  "    pm.expect(body.content[0]).to.have.all.keys(\"id\", \"ticker\", \"name\", \"type\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search ignoring accents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "The query \"compania\" finds the name with an accent (Compañía).",
+            "url": {
+              "raw": "{{baseUrl}}/instruments?query=compania",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "instruments"
+              ],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "compania"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"finds the accented name\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.content.map(i => i.ticker)).to.include(\"INTR\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search with pagination",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "page and size are query parameters; the page object reports the totals. Page 1 of size 2 is the second page.",
+            "url": {
+              "raw": "{{baseUrl}}/instruments?query=banco&size=2&page=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "instruments"
+              ],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "banco"
+                },
+                {
+                  "key": "size",
+                  "value": "2"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"second page of two results\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.page.size).to.eql(2);",
+                  "    pm.expect(body.page.number).to.eql(1);",
+                  "    pm.expect(body.content.length).to.be.at.most(2);",
+                  "    pm.expect(body.page.totalElements).to.be.above(2);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Blank query is rejected",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "A blank query is a 400 VALIDATION_FAILED that names the query field.",
+            "url": {
+              "raw": "{{baseUrl}}/instruments?query=%20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "instruments"
+              ],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "%20"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"VALIDATION_FAILED on query\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql(\"VALIDATION_FAILED\");",
+                  "    pm.expect(body.requestId).to.be.a(\"string\");",
+                  "    pm.expect(body.errors.map(e => e.field)).to.include(\"query\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Portfolio",
+      "item": [
+        {
+          "name": "Seed user 1 portfolio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Read-only seed data: the exact values of user 1's portfolio, with its short position in BMA.",
+            "url": {
+              "raw": "{{baseUrl}}/users/1/portfolio",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "1",
+                "portfolio"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"seed totals\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.userId).to.eql(1);",
+                  "    pm.expect(body.totalValue.amount).to.eql(889756.0);",
+                  "    pm.expect(body.availableCash.amount).to.eql(627500.0);",
+                  "    pm.expect(body.totalValue.currency).to.eql(\"ARS\");",
+                  "});",
+                  "pm.test(\"seed positions\", () => {",
+                  "    const body = pm.response.json();",
+                  "    const bySymbol = Object.fromEntries(body.positions.map(p => [p.ticker, p]));",
+                  "    pm.expect(Object.keys(bySymbol).sort()).to.eql([\"BMA\", \"METR\", \"PAMP\"]);",
+                  "    pm.expect(bySymbol.BMA.quantity).to.eql(-10);",
+                  "    pm.expect(bySymbol.METR.quantity).to.eql(500);",
+                  "    pm.expect(bySymbol.PAMP.quantity).to.eql(40);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unknown user",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "A user that does not exist is a 404 with the stable code USER_NOT_FOUND.",
+            "url": {
+              "raw": "{{baseUrl}}/users/999/portfolio",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "999",
+                "portfolio"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"USER_NOT_FOUND\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql(\"USER_NOT_FOUND\");",
+                  "    pm.expect(body.requestId).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Transfers",
+      "item": [
+        {
+          "name": "CASH_IN to fund the user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Deposits 50000 pesos. A deposit is always COMPLETED.",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/transfers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}",
+                "transfers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\": \"CASH_IN\", \"amount\": 50000}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"COMPLETED deposit\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.type).to.eql(\"CASH_IN\");",
+                  "    pm.expect(body.status).to.eql(\"COMPLETED\");",
+                  "    pm.expect(body.amount.amount).to.eql(50000.0);",
+                  "    pm.expect(body.rejectionReason).to.be.null;",
+                  "    pm.expect(body.userId).to.eql(Number(pm.environment.get('userId')));",
+                  "});",
+                  "pm.environment.set('transferId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CASH_OUT within funds",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Withdraws 12500.50, which the user can cover after the deposit.",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/transfers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}",
+                "transfers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\": \"CASH_OUT\", \"amount\": 12500.50}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"COMPLETED withdrawal\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.type).to.eql(\"CASH_OUT\");",
+                  "    pm.expect(body.status).to.eql(\"COMPLETED\");",
+                  "    pm.expect(body.amount.amount).to.eql(12500.5);",
+                  "    pm.expect(body.rejectionReason).to.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CASH_OUT over the available pesos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "A withdrawal the user cannot cover is stored as REJECTED and still answers 201, with the reason.",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/transfers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}",
+                "transfers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\": \"CASH_OUT\", \"amount\": 900000000}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"REJECTED for lack of cash\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql(\"REJECTED\");",
+                  "    pm.expect(body.rejectionReason).to.eql(\"INSUFFICIENT_CASH\");",
+                  "    pm.expect(body.id).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transfer history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Newest first: the rejected withdrawal, then the completed one, then the deposit.",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/transfers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}",
+                "transfers"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"newest first, with the three made above\", () => {",
+                  "    const list = pm.response.json();",
+                  "    pm.expect(list.length).to.be.at.least(3);",
+                  "    pm.expect(list.every(t => t.userId === Number(pm.environment.get(\"userId\")))).to.be.true;",
+                  "    const ids = list.map(t => t.id);",
+                  "    pm.expect(ids).to.eql([...ids].sort((a, b) => b - a));",
+                  "    pm.expect(list.map(t => t.id)).to.include(Number(pm.environment.get(\"transferId\")));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get one transfer",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Reads back the deposit saved as transferId.",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/transfers/{{transferId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}",
+                "transfers",
+                "{{transferId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"the saved deposit\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.id).to.eql(Number(pm.environment.get('transferId')));",
+                  "    pm.expect(body.type).to.eql(\"CASH_IN\");",
+                  "    pm.expect(body.status).to.eql(\"COMPLETED\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid body",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "A non-positive amount is a 400 VALIDATION_FAILED naming the amount field; nothing is stored.",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/transfers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}",
+                "transfers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\": \"CASH_IN\", \"amount\": 0}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"VALIDATION_FAILED on amount\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql(\"VALIDATION_FAILED\");",
+                  "    pm.expect(body.requestId).to.be.a(\"string\");",
+                  "    pm.expect(body.errors.map(e => e.field)).to.include(\"amount\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "MARKET buy by size",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Buys 3 shares at the latest close: FILLED right away.",
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"userId\": {{userId}}, \"instrumentId\": {{instrumentId}}, \"side\": \"BUY\", \"type\": \"MARKET\", \"size\": 3}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"FILLED order\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql(\"FILLED\");",
+                  "    pm.expect(body.rejectionReason).to.be.null;",
+                  "    pm.expect(body.id).to.be.a('number');",
+                  "    pm.expect(body.instrumentId).to.eql(Number(pm.environment.get('instrumentId')));",
+                  "    pm.expect(body.size).to.eql(3);",
+                  "    pm.expect(body.side).to.eql(\"BUY\");",
+                  "    pm.expect(body.type).to.eql(\"MARKET\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "MARKET buy by amount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Buys with 10000 pesos: only whole shares, so the size is whatever that amount covers.",
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"userId\": {{userId}}, \"instrumentId\": {{instrumentId}}, \"side\": \"BUY\", \"type\": \"MARKET\", \"amount\": 10000}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"FILLED order\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql(\"FILLED\");",
+                  "    pm.expect(body.rejectionReason).to.be.null;",
+                  "    pm.expect(body.id).to.be.a('number');",
+                  "    pm.expect(body.instrumentId).to.eql(Number(pm.environment.get('instrumentId')));",
+                  "    pm.expect(body.size).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIMIT buy stays NEW",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "A limit buy is stored NEW at its price and reserves pesos. Saves its id as limitOrderId.",
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"userId\": {{userId}}, \"instrumentId\": {{instrumentId}}, \"side\": \"BUY\", \"type\": \"LIMIT\", \"size\": 5, \"price\": 100}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"NEW limit order\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql(\"NEW\");",
+                  "    pm.expect(body.type).to.eql(\"LIMIT\");",
+                  "    pm.expect(body.price.amount).to.eql(100.0);",
+                  "    pm.expect(body.size).to.eql(5);",
+                  "});",
+                  "pm.environment.set('limitOrderId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get the limit order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Reads back the order saved as limitOrderId.",
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{limitOrderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{limitOrderId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"still NEW\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.id).to.eql(Number(pm.environment.get('limitOrderId')));",
+                  "    pm.expect(body.status).to.eql(\"NEW\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancel the limit order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Only an open (NEW) order can be cancelled.",
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{limitOrderId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{limitOrderId}}",
+                "cancel"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"CANCELLED\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.id).to.eql(Number(pm.environment.get('limitOrderId')));",
+                  "    pm.expect(body.status).to.eql(\"CANCELLED\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancel it again",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "A cancelled order cannot be cancelled: 409 ORDER_NOT_CANCELLABLE.",
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{limitOrderId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{limitOrderId}}",
+                "cancel"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"ORDER_NOT_CANCELLABLE\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql(\"ORDER_NOT_CANCELLABLE\");",
+                  "    pm.expect(body.requestId).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "BUY over the available pesos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "An order the user cannot pay is stored REJECTED and answers 201, with the reason.",
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"userId\": {{userId}}, \"instrumentId\": {{instrumentId}}, \"side\": \"BUY\", \"type\": \"MARKET\", \"size\": 2000000000}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"REJECTED for lack of cash\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql(\"REJECTED\");",
+                  "    pm.expect(body.rejectionReason).to.eql(\"INSUFFICIENT_CASH\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SELL more than held",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Selling shares the user does not hold is stored REJECTED with INSUFFICIENT_SHARES.",
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"userId\": {{userId}}, \"instrumentId\": {{instrumentId}}, \"side\": \"SELL\", \"type\": \"MARKET\", \"size\": 2000000000}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"REJECTED for lack of shares\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql(\"REJECTED\");",
+                  "    pm.expect(body.rejectionReason).to.eql(\"INSUFFICIENT_SHARES\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "MARKET order with a price",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "A market order takes no price: a malformed request is a 400 and nothing is stored.",
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"userId\": {{userId}}, \"instrumentId\": {{instrumentId}}, \"side\": \"BUY\", \"type\": \"MARKET\", \"size\": 1, \"price\": 100}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"LIMIT_PRICE_MISMATCH\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql(\"LIMIT_PRICE_MISMATCH\");",
+                  "    pm.expect(body.requestId).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "User's cancelled orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "Lists the user's orders filtered by status, in a page of up to 100.",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/orders?status=CANCELLED&size=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "CANCELLED"
+                },
+                {
+                  "key": "size",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"only CANCELLED orders of the user\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.content.length).to.be.above(0);",
+                  "    body.content.forEach(o => pm.expect(o.status).to.eql(\"CANCELLED\"));",
+                  "    body.content.forEach(o => pm.expect(o.userId).to.eql(Number(pm.environment.get(\"userId\"))));",
+                  "    pm.expect(body.page).to.have.property(\"totalElements\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "User's rejected orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "The same listing with another status: rejected orders are kept as history, with their reason.",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/orders?status=REJECTED&size=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "REJECTED"
+                },
+                {
+                  "key": "size",
+                  "value": "100"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"only REJECTED orders, each with a reason\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.content.length).to.be.above(0);",
+                  "    body.content.forEach(o => { pm.expect(o.status).to.eql(\"REJECTED\"); pm.expect(o.rejectionReason).to.be.a(\"string\"); });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Portfolio of the user",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "description": "After the orders above, the user holds PAMP shares and has pesos left. Only invariants are asserted, because totals grow with every run.",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/portfolio",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}",
+                "portfolio"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"holds PAMP and keeps pesos\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.userId).to.eql(Number(pm.environment.get('userId')));",
+                  "    const pamp = body.positions.find(p => p.instrumentId === Number(pm.environment.get('instrumentId')));",
+                  "    pm.expect(pamp, 'PAMP position').to.exist;",
+                  "    pm.expect(pamp.quantity).to.be.at.least(3);",
+                  "    pm.expect(body.availableCash.amount).to.be.above(0);",
+                  "    pm.expect(body.totalValue.amount).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Idempotency",
+      "item": [
+        {
+          "name": "Order with an idempotency key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{orderKey}}"
+              }
+            ],
+            "description": "Generates a fresh key (saved as orderKey) and places a market buy with it. The first request is processed normally.",
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"userId\": {{userId}}, \"instrumentId\": {{instrumentId}}, \"side\": \"BUY\", \"type\": \"MARKET\", \"size\": 1}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('orderKey', 'postman-' + pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"placed, not a replay\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql(\"FILLED\");",
+                  "    pm.expect(pm.response.headers.has(\"Idempotent-Replayed\")).to.be.false;",
+                  "});",
+                  "pm.environment.set('idemOrderId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Same order again",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{orderKey}}"
+              }
+            ],
+            "description": "Same key and same body: the same order comes back, marked Idempotent-Replayed: true, and no second order is placed.",
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"userId\": {{userId}}, \"instrumentId\": {{instrumentId}}, \"side\": \"BUY\", \"type\": \"MARKET\", \"size\": 1}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"same order, replayed\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.id).to.eql(Number(pm.environment.get('idemOrderId')));",
+                  "    pm.expect(pm.response.headers.get(\"Idempotent-Replayed\")).to.eql(\"true\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Same key, another order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{orderKey}}"
+              }
+            ],
+            "description": "The same key with a different body (size 2) is a 422 IDEMPOTENCY_KEY_REUSED; nothing is stored.",
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"userId\": {{userId}}, \"instrumentId\": {{instrumentId}}, \"side\": \"BUY\", \"type\": \"MARKET\", \"size\": 2}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"IDEMPOTENCY_KEY_REUSED\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql(\"IDEMPOTENCY_KEY_REUSED\");",
+                  "    pm.expect(body.requestId).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transfer with an idempotency key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{transferKey}}"
+              }
+            ],
+            "description": "Generates a fresh key (saved as transferKey) and deposits 100 pesos with it.",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/transfers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}",
+                "transfers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\": \"CASH_IN\", \"amount\": 100}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('transferKey', 'postman-' + pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"made, not a replay\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql(\"COMPLETED\");",
+                  "    pm.expect(pm.response.headers.has(\"Idempotent-Replayed\")).to.be.false;",
+                  "});",
+                  "pm.environment.set('idemTransferId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Same transfer again",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{transferKey}}"
+              }
+            ],
+            "description": "Same key and same body: the same transfer, marked Idempotent-Replayed: true; the user is not credited twice.",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/transfers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}",
+                "transfers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\": \"CASH_IN\", \"amount\": 100}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"same transfer, replayed\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.id).to.eql(Number(pm.environment.get('idemTransferId')));",
+                  "    pm.expect(pm.response.headers.get(\"Idempotent-Replayed\")).to.eql(\"true\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Same key, another transfer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{transferKey}}"
+              }
+            ],
+            "description": "The same key with another amount is a 422 IDEMPOTENCY_KEY_REUSED; nothing is stored.",
+            "url": {
+              "raw": "{{baseUrl}}/users/{{userId}}/transfers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{userId}}",
+                "transfers"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\": \"CASH_IN\", \"amount\": 200}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"IDEMPOTENCY_KEY_REUSED\", () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.code).to.eql(\"IDEMPOTENCY_KEY_REUSED\");",
+                  "    pm.expect(body.requestId).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
