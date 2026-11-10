@@ -34,6 +34,8 @@ Usan un Postgres descartable (Testcontainers) con los mismos datos, así que nec
 | GET | `/instruments?query=banco` | Busca instrumentos por ticker o nombre |
 | GET | `/users/{userId}/portfolio` | Valor total, pesos disponibles y posiciones |
 
+Documentación interactiva de la API: <http://localhost:8080/swagger-ui.html>
+
 Hay ejemplos listos para ejecutar en [`http/`](http/) (REST Client de VS Code o IntelliJ).
 
 ## Uso de IA

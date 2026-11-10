@@ -34,6 +34,8 @@ They use a throwaway Postgres (Testcontainers) with the same data, so they need 
 | GET | `/instruments?query=banco` | Searches instruments by ticker or name |
 | GET | `/users/{userId}/portfolio` | Total value, available pesos and positions |
 
+Interactive API docs: <http://localhost:8080/swagger-ui.html>
+
 Ready-to-run examples live in [`http/`](http/) (VS Code REST Client or IntelliJ).
 
 ## Use of AI
