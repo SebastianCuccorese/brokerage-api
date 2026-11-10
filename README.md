@@ -53,6 +53,8 @@ Usan un Postgres descartable (Testcontainers) con los mismos datos, así que nec
 | GET | `/orders/{orderId}` | Devuelve una orden |
 | POST | `/orders/{orderId}/cancel` | Cancela una orden abierta (`NEW`) |
 
+`POST /orders` acepta un header opcional `Idempotency-Key`: un reintento con la misma clave devuelve la misma orden en lugar de enviar otra ([Idempotencia](docs/decisions.md#idempotencia)).
+
 Documentación interactiva de la API: <http://localhost:8080/swagger-ui.html>
 
 Hay ejemplos listos para ejecutar en [`http/`](http/) (REST Client de VS Code o IntelliJ).

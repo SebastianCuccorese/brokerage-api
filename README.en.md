@@ -53,6 +53,8 @@ They use a throwaway Postgres (Testcontainers) with the same data, so they need 
 | GET | `/orders/{orderId}` | Returns one order |
 | POST | `/orders/{orderId}/cancel` | Cancels an open (`NEW`) order |
 
+`POST /orders` takes an optional `Idempotency-Key` header: a retry with the same key returns the same order instead of placing another ([Idempotency](docs/decisions.en.md#idempotency)).
+
 Interactive API docs: <http://localhost:8080/swagger-ui.html>
 
 Ready-to-run examples live in [`http/`](http/) (VS Code REST Client or IntelliJ).

@@ -57,11 +57,20 @@ A market order executes at the latest `close` and is `FILLED`. A limit order sta
 - **Time in UTC:** `datetime` is an instant (`timestamptz`) and the API returns it as ISO-8601 UTC (`2026-11-10T14:30:00Z`). The provided orders held Buenos Aires time without a zone (11:13 to 16:11, the local market hours); migration V4 converted them once, keeping their order. The time comes from a single `Clock`, which tests fix.
 - **Cancel does not check the owner:** nothing verifies that the order belongs to the caller, because there is no authentication, and a `userId` sent by the client would only look like security.
 
+## Idempotency
+
+A client that retries after a timeout does not know whether its order arrived, and in a brokerage a retry must not buy twice. `POST /orders` takes an optional `Idempotency-Key` header, with the semantics of the IETF draft "The Idempotency-Key HTTP Header Field": the first request with a key is processed and the key is stored (table `idempotency_keys`, migration V7); a retry with the same key returns the same order, marked `Idempotent-Replayed: true`, instead of placing another. Without the header nothing changes.
+
+- **On the user lock:** the key is looked up and stored in the same transaction that already locks the user's row, so a concurrent retry waits for the first request and finds its key. That is why the 409 the draft foresees for a request still in flight is not needed; the unique constraint on (user, operation, key) is the safety net.
+- **A retry returns the order as it is now** (`CANCELLED` if it was cancelled since), not a copy of the first response: the client cares about which order exists and in what state, and storing responses would duplicate what `orders` already holds. A `REJECTED` order is a result too: the retry returns it rejected and does not decide again. A request that fails (400, 404) stores nothing and its key stays free.
+- **The same key with a different request** is a 422 `IDEMPOTENCY_KEY_REUSED` and stores nothing. What is compared is a SHA-256 of the parsed request, not of its bytes, so field order, spacing or `1000` against `1000.00` do not change it.
+- **Retention:** a key holds for at least 24 hours; an hourly task deletes the expired ones. It is per user and per operation, 1 to 64 characters of `[A-Za-z0-9._:-]`, quoted or not (`"abc"` is `abc`), because the draft defines it as a structured-field string.
+
 ## Errors
 
 Every error response is a problem detail (RFC 9457) with a stable `code` and the request's `requestId`. The domain throws exceptions that carry their `code` but do not know what HTTP is; one `@RestControllerAdvice` turns each category into a status. That way a client switches on the `code`, and support finds the logs with the `requestId`.
 
-- **Categories:** `NotFoundException` (404), `InvalidRequestException` (400) and `ConflictException` (409), each with an `ErrorCode` (`ORDER_NOT_FOUND`, `ORDER_NOT_CANCELLABLE`, `SIZE_OR_AMOUNT_REQUIRED`...). A code is never renamed or given a new meaning; the text can change.
+- **Categories:** `NotFoundException` (404), `InvalidRequestException` (400), `ConflictException` (409) and `UnprocessableContentException` (422: the request contradicts an earlier one, such as a reused idempotency key; not a 409 because retrying cannot fix it, only changing the request can), each with an `ErrorCode` (`ORDER_NOT_FOUND`, `ORDER_NOT_CANCELLABLE`, `SIZE_OR_AMOUNT_REQUIRED`...). A code is never renamed or given a new meaning; the text can change.
 - **Validation:** a 400 `VALIDATION_FAILED` with an `errors` list of `{field, message}`, so a client can mark the field. Broken JSON is `MALFORMED_REQUEST` and does not repeat Jackson's message.
 - **Framework errors** (method not allowed, unknown route) keep their status and gain the `requestId`, without a `code`.
 - **A 500 never leaks internals:** it answers `INTERNAL_ERROR` with a generic text asking to quote the `requestId`; the message and stack stay in the log, at ERROR level.

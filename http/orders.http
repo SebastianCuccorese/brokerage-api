@@ -30,6 +30,27 @@ Content-Type: application/json
 
 {"userId": 1, "instrumentId": 47, "side": "BUY", "type": "MARKET", "size": 1, "amount": 1000}
 
+### With an idempotency key: placed once, the key is kept 24 hours
+POST {{baseUrl}}/orders
+Content-Type: application/json
+Idempotency-Key: 8e03978e-40d5-43e8-bc93-6894a57f9324
+
+{"userId": 1, "instrumentId": 47, "side": "BUY", "type": "MARKET", "size": 1}
+
+### The same request again: the same order, with Idempotent-Replayed: true
+POST {{baseUrl}}/orders
+Content-Type: application/json
+Idempotency-Key: 8e03978e-40d5-43e8-bc93-6894a57f9324
+
+{"userId": 1, "instrumentId": 47, "side": "BUY", "type": "MARKET", "size": 1}
+
+### The same key with a different order (422 IDEMPOTENCY_KEY_REUSED, nothing stored)
+POST {{baseUrl}}/orders
+Content-Type: application/json
+Idempotency-Key: 8e03978e-40d5-43e8-bc93-6894a57f9324
+
+{"userId": 1, "instrumentId": 47, "side": "BUY", "type": "MARKET", "size": 2}
+
 ### A seed order that is still open
 GET {{baseUrl}}/orders/7
 

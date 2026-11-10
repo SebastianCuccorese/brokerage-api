@@ -57,11 +57,20 @@ Una orden de mercado se ejecuta al último `close` y queda `FILLED`. Una límite
 - **Hora en UTC:** `datetime` es un instante (`timestamptz`) y la API lo devuelve en ISO-8601 UTC (`2026-11-10T14:30:00Z`). Las órdenes provistas tenían la hora de Buenos Aires sin zona (de 11:13 a 16:11, el horario del mercado local); la migración V4 las convirtió una sola vez, sin cambiar su orden. La hora sale de un único `Clock`, que los tests fijan.
 - **Cancelar no verifica al dueño:** no se comprueba que la orden sea de quien lo pide, porque no hay autenticación, y un `userId` enviado por el cliente solo parecería seguridad.
 
+## Idempotencia
+
+Un cliente que reintenta después de un timeout no sabe si su orden llegó, y en un broker el reintento no puede comprar dos veces. `POST /orders` acepta un header opcional `Idempotency-Key`, con la semántica del draft de la IETF "The Idempotency-Key HTTP Header Field": el primer pedido con una clave se procesa y la clave se guarda (tabla `idempotency_keys`, migración V7); un reintento con la misma clave devuelve la misma orden, con `Idempotent-Replayed: true`, en lugar de enviar otra. Sin el header nada cambia.
+
+- **Sobre el bloqueo del usuario:** la clave se busca y se guarda en la misma transacción que ya bloquea la fila del usuario, así que un reintento simultáneo espera al primero y encuentra su clave. Por eso no hace falta el 409 que el draft prevé para un pedido todavía en curso; la restricción única (usuario, operación, clave) queda como red de seguridad.
+- **El reintento devuelve la orden como está ahora** (si se canceló después, `CANCELLED`), no una copia de la primera respuesta: al cliente le importa qué orden quedó y en qué estado, y guardar respuestas duplicaría lo que ya está en `orders`. Una orden `REJECTED` también es un resultado: el reintento la devuelve rechazada, sin volver a decidir. Un pedido que falla (400, 404) no guarda nada y su clave sigue libre.
+- **La misma clave con otro pedido** es un 422 `IDEMPOTENCY_KEY_REUSED` y no guarda nada. Se compara un SHA-256 del pedido ya interpretado, no de los bytes, así que el orden de los campos, los espacios o `1000` contra `1000.00` no lo cambian.
+- **Retención:** una clave vale al menos 24 horas; una tarea horaria borra las vencidas. Es por usuario y por operación, de 1 a 64 caracteres de `[A-Za-z0-9._:-]`, con o sin comillas (`"abc"` es `abc`), porque el draft la define como un string de structured fields.
+
 ## Errores
 
 Toda respuesta de error es un problem detail (RFC 9457) con un `code` estable y el `requestId` del pedido. El dominio lanza excepciones que llevan su `code` pero no saben qué es HTTP; un único `@RestControllerAdvice` convierte cada categoría en un estado. Así el cliente decide por el `code`, y soporte encuentra los logs con el `requestId`.
 
-- **Categorías:** `NotFoundException` (404), `InvalidRequestException` (400) y `ConflictException` (409), todas con un `ErrorCode` (`ORDER_NOT_FOUND`, `ORDER_NOT_CANCELLABLE`, `SIZE_OR_AMOUNT_REQUIRED`...). Un código nunca se renombra ni cambia de significado; el texto sí puede cambiar.
+- **Categorías:** `NotFoundException` (404), `InvalidRequestException` (400), `ConflictException` (409) y `UnprocessableContentException` (422: el pedido contradice uno anterior, como una clave de idempotencia reusada; no es un 409 porque reintentar no lo arregla, hay que cambiar el pedido), todas con un `ErrorCode` (`ORDER_NOT_FOUND`, `ORDER_NOT_CANCELLABLE`, `SIZE_OR_AMOUNT_REQUIRED`...). Un código nunca se renombra ni cambia de significado; el texto sí puede cambiar.
 - **Validación:** un 400 `VALIDATION_FAILED` con una lista `errors` de `{field, message}`, para que el cliente marque el campo. Un JSON roto es `MALFORMED_REQUEST` y no repite el mensaje de Jackson.
 - **Errores del framework** (método no permitido, ruta inexistente) conservan su estado y suman el `requestId`, sin `code`.
 - **Un 500 nunca filtra detalles:** responde `INTERNAL_ERROR` con un texto genérico que pide citar el `requestId`; el mensaje y el stack quedan solo en el log, en nivel ERROR.
