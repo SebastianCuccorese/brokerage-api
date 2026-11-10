@@ -27,11 +27,14 @@ class UserOrdersTest {
     @Autowired
     private JdbcClient jdbc;
 
+    @Autowired
+    private TransferService transfers;
+
     private TestAccounts accounts;
 
     @BeforeEach
     void setUp() {
-        accounts = new TestAccounts(jdbc);
+        accounts = new TestAccounts(jdbc, transfers);
     }
 
     private void place(int user, String side, String type, String extra) {
@@ -44,7 +47,7 @@ class UserOrdersTest {
         return mvc.get().uri("/users/{userId}/orders", user);
     }
 
-    /** CASH_IN (2023), then FILLED buy, NEW limit buy and REJECTED sell, all at the fixed 2026 time. */
+    /** A FILLED buy, a NEW limit buy and a REJECTED sell, all at the fixed 2026 time; funding is a transfer, not an order. */
     private int userWithOneOrderOfEachStatus() {
         int user = accounts.fundedUser(10_000);
         place(user, "BUY", "MARKET", "\"size\": 1");
@@ -59,9 +62,9 @@ class UserOrdersTest {
 
         assertThat(orders(user)).hasStatusOk().bodyJson()
                 .extractingPath("$.content[*].status").asArray()
-                .containsExactly("REJECTED", "NEW", "FILLED", "FILLED");
+                .containsExactly("REJECTED", "NEW", "FILLED");
         assertThat(orders(user)).bodyJson().extractingPath("$.content[*].side").asArray()
-                .containsExactly("SELL", "BUY", "BUY", "CASH_IN");
+                .containsExactly("SELL", "BUY", "BUY");
     }
 
     @Test
@@ -80,13 +83,13 @@ class UserOrdersTest {
     void pagesWithTheTotalsOfTheWholeListing() {
         int user = userWithOneOrderOfEachStatus();
 
-        assertThat(orders(user).param("size", "3")).bodyJson().isLenientlyEqualTo("""
-                {"content": [{"status": "REJECTED"}, {"status": "NEW"}, {"status": "FILLED"}],
-                 "page": {"size": 3, "number": 0, "totalElements": 4, "totalPages": 2}}
+        assertThat(orders(user).param("size", "2")).bodyJson().isLenientlyEqualTo("""
+                {"content": [{"status": "REJECTED"}, {"status": "NEW"}],
+                 "page": {"size": 2, "number": 0, "totalElements": 3, "totalPages": 2}}
                 """);
-        assertThat(orders(user).param("size", "3").param("page", "1")).bodyJson().isLenientlyEqualTo("""
-                {"content": [{"side": "CASH_IN"}],
-                 "page": {"size": 3, "number": 1, "totalElements": 4, "totalPages": 2}}
+        assertThat(orders(user).param("size", "2").param("page", "1")).bodyJson().isLenientlyEqualTo("""
+                {"content": [{"status": "FILLED"}],
+                 "page": {"size": 2, "number": 1, "totalElements": 3, "totalPages": 2}}
                 """);
     }
 
@@ -95,7 +98,7 @@ class UserOrdersTest {
         int user = userWithOneOrderOfEachStatus();
 
         assertThat(orders(user).param("status", "FILLED")).bodyJson().isLenientlyEqualTo("""
-                {"content": [{"side": "BUY"}, {"side": "CASH_IN"}], "page": {"totalElements": 2}}
+                {"content": [{"side": "BUY"}], "page": {"totalElements": 1}}
                 """);
         assertThat(orders(user).param("status", "NEW")).bodyJson()
                 .extractingPath("$.page.totalElements").isEqualTo(1);

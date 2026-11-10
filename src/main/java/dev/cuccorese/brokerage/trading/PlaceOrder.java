@@ -3,7 +3,6 @@ package dev.cuccorese.brokerage.trading;
 import dev.cuccorese.brokerage.shared.ErrorCode;
 import dev.cuccorese.brokerage.shared.InvalidRequestException;
 import dev.cuccorese.brokerage.shared.Money;
-import java.util.EnumSet;
 
 /**
  * What a user asks to trade: a BUY or SELL for exactly one of {@code size} (shares) or
@@ -19,9 +18,6 @@ public record PlaceOrder(
         Money limitPrice) {
 
     public PlaceOrder {
-        if (!EnumSet.of(OrderSide.BUY, OrderSide.SELL).contains(side)) {
-            throw new InvalidRequestException(ErrorCode.SIDE_NOT_TRADABLE, "side must be BUY or SELL; cash moves are not orders");
-        }
         if ((size == null) == (amount == null)) {
             throw new InvalidRequestException(ErrorCode.SIZE_OR_AMOUNT_REQUIRED, "Send exactly one of size or amount");
         }

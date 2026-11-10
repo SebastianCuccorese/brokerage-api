@@ -1,0 +1,34 @@
+@baseUrl = http://localhost:8080
+
+### Deposit pesos: COMPLETED
+POST {{baseUrl}}/users/2/transfers
+Content-Type: application/json
+
+{"type": "CASH_IN", "amount": 50000}
+
+### Withdraw within the available pesos: COMPLETED
+POST {{baseUrl}}/users/2/transfers
+Content-Type: application/json
+
+{"type": "CASH_OUT", "amount": 12500.50}
+
+### Withdraw more than the available pesos: stored as REJECTED (201) with the reason
+POST {{baseUrl}}/users/2/transfers
+Content-Type: application/json
+
+{"type": "CASH_OUT", "amount": 1000000}
+
+### A non-positive amount (400, nothing stored)
+POST {{baseUrl}}/users/2/transfers
+Content-Type: application/json
+
+{"type": "CASH_IN", "amount": 0}
+
+### The user's transfers, newest first
+GET {{baseUrl}}/users/2/transfers
+
+### The seed user's deposit, moved from the orders table
+GET {{baseUrl}}/users/1/transfers/1
+
+### Unknown user (404)
+GET {{baseUrl}}/users/999/transfers

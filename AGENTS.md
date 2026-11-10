@@ -21,8 +21,8 @@ rules apply to any agent working in this repository.
 - Money is always a `Money` value (currency + amount), never a bare number,
   and amounts are `BigDecimal`, never `double` or `float`. The only currency
   today is ARS, but no code assumes it.
-- Cash and positions are derived from the `orders` table (the ledger). Do not
-  store balances anywhere else without a documented decision.
+- Cash and positions are derived from the `transfers` and `orders` tables (the
+  ledger). Do not store balances anywhere else without a documented decision.
 
 ## Database
 
