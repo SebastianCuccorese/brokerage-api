@@ -22,19 +22,34 @@ public class Position {
         this.cost = Money.zero(currency);
     }
 
-    /** Applies a fill: positive {@code signedSize} buys, negative sells. */
+    /**
+     * Applies a fill: positive {@code signedSize} buys, negative sells. A trade first
+     * closes what it can of the current position at the average cost, and whatever
+     * is left opens or extends the position at the trade price.
+     */
     void apply(long signedSize, Money price) {
-        long newQuantity = quantity + signedSize;
-        boolean grows = quantity == 0 || Long.signum(quantity) == Long.signum(signedSize);
-        boolean crossesZero = !grows && Long.signum(newQuantity) == Long.signum(signedSize);
-        if (grows) {
-            cost = cost.plus(price.times(signedSize));
-        } else if (crossesZero) {
-            cost = price.times(newQuantity);
-        } else {
-            cost = cost.dividedBy(quantity).times(newQuantity);
+        long closing = closingPart(signedSize);
+        reduce(closing);
+        extend(signedSize - closing, price);
+    }
+
+    private long closingPart(long signedSize) {
+        boolean opposesPosition = Long.signum(signedSize) == -Long.signum(quantity);
+        return opposesPosition ? Long.signum(signedSize) * Math.min(Math.abs(signedSize), Math.abs(quantity)) : 0;
+    }
+
+    private void reduce(long size) {
+        if (size == 0) {
+            return;
         }
-        quantity = newQuantity;
+        Money averageCost = cost.dividedBy(quantity);
+        quantity += size;
+        cost = averageCost.times(quantity);
+    }
+
+    private void extend(long size, Money price) {
+        quantity += size;
+        cost = cost.plus(price.times(size));
     }
 
     public boolean isOpen() {
