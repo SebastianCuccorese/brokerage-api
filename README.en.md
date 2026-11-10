@@ -19,6 +19,8 @@ docker compose up -d
 
 **With the provided database:** copy `.env.example` to `.env`, fill in the connection and run `./mvnw spring-boot:run`. `.env` is in `.gitignore` and never committed. When it exists, it takes precedence over the local database.
 
+On startup the application applies the pending migrations, **including on the provided database**: the first time it adds indexes and columns and creates the `flyway_schema_history` table. Use the direct database connection, not a transaction-mode pooler (for example a host with `-pooler`): migrations need a stable session.
+
 The API listens on `http://localhost:8080`. Logs are readable text; with `--spring.profiles.active=json` they are JSON (ECS), for a log platform.
 
 ## Tests

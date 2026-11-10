@@ -13,10 +13,11 @@ El sistema tiene dos mitades con necesidades distintas, y cada una usa el estilo
 
 ## Base de datos
 
-El esquema provisto alcanza tal como está. La aplicación no lo crea ni lo modifica: Hibernate solo valida que las entidades coincidan con las tablas.
+El esquema provisto es la versión 1. Al arrancar, la aplicación toma cualquier base sin historial como versión 1 y aplica las migraciones pendientes (Flyway), así que la base local, los tests y la base provista siguen el mismo camino. Hibernate solo valida que las entidades coincidan con las tablas.
 
-- **Índices propuestos** en `db/02-indexes.sql`, para las consultas que hace la API (órdenes por usuario y estado, último precio por instrumento). Se aplican en la base local y en los tests. En la base provista se aplican a mano, porque la aplicación no modifica una base que no es suya.
-- **Sin herramienta de migraciones:** con un solo script de índices no hace falta. Si el esquema empezara a cambiar seguido, el paso natural es Flyway.
+- **Consecuencia:** el primer arranque contra la base provista la modifica: agrega índices y, más adelante, columnas, y crea la tabla `flyway_schema_history`.
+- **Migraciones** en `src/main/resources/db/migration`. `db/01-database.sql` queda como el estado provisto: la base local y la de tests lo cargan al crearse.
+- **Misma versión que la base provista:** Postgres 18.6 en la base local y en los tests, para que lo que se prueba sea lo que corre.
 
 ## Dinero
 
