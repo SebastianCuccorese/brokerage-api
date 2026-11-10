@@ -40,6 +40,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             case NotFoundException e -> HttpStatus.NOT_FOUND;
             case InvalidRequestException e -> HttpStatus.BAD_REQUEST;
             case ConflictException e -> HttpStatus.CONFLICT;
+            case UnprocessableContentException e -> HttpStatus.UNPROCESSABLE_CONTENT;
         };
         return respond(ex, status, ex.getCode(), ex.getMessage(), request);
     }
