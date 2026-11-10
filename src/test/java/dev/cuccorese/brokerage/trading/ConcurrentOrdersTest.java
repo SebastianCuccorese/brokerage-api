@@ -6,9 +6,12 @@ import dev.cuccorese.brokerage.TestcontainersConfiguration;
 import dev.cuccorese.brokerage.shared.ConflictException;
 import dev.cuccorese.brokerage.shared.Currencies;
 import dev.cuccorese.brokerage.shared.Money;
+import dev.cuccorese.brokerage.shared.idempotency.IdempotencyKey;
+import dev.cuccorese.brokerage.shared.idempotency.IdempotentResult;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -56,7 +59,7 @@ class ConcurrentOrdersTest {
         int user = new TestAccounts(jdbc).fundedUser(1_000);
         PlaceOrder oneShare = new PlaceOrder(user, PAMP, OrderSide.BUY, OrderType.MARKET, 1, null, null);
 
-        assertThat(twiceAtOnce(() -> orders.place(oneShare).getStatus()))
+        assertThat(twiceAtOnce(() -> orders.place(oneShare, Optional.empty()).resource().getStatus()))
                 .containsExactlyInAnyOrder(OrderStatus.FILLED, OrderStatus.REJECTED);
     }
 
@@ -64,8 +67,8 @@ class ConcurrentOrdersTest {
     void twoCancelsAtOnceCancelTheOrderOnce() throws Exception {
         int user = new TestAccounts(jdbc).fundedUser(1_000);
         Money price = Money.of(Currencies.ARS, new BigDecimal("900"));
-        Integer orderId = orders.place(new PlaceOrder(user, PAMP, OrderSide.BUY, OrderType.LIMIT, 1, null, price))
-                .getId();
+        Integer orderId = orders.place(new PlaceOrder(user, PAMP, OrderSide.BUY, OrderType.LIMIT, 1, null, price),
+                Optional.empty()).resource().getId();
 
         assertThat(twiceAtOnce(() -> {
             try {
@@ -74,5 +77,20 @@ class ConcurrentOrdersTest {
                 return "NOT_CANCELLABLE";
             }
         })).containsExactlyInAnyOrder("CANCELLED", "NOT_CANCELLABLE");
+    }
+
+    /** 10 000 pesos pay for both orders, so only the key can stop the second one. */
+    @Test
+    void twoRequestsAtOnceWithTheSameKeyPlaceOneOrder() throws Exception {
+        TestAccounts accounts = new TestAccounts(jdbc);
+        int user = accounts.fundedUser(10_000);
+        PlaceOrder oneShare = new PlaceOrder(user, PAMP, OrderSide.BUY, OrderType.MARKET, 1, null, null);
+        Optional<IdempotencyKey> key = Optional.of(new IdempotencyKey("retry-1"));
+
+        List<IdempotentResult<Order>> results = twiceAtOnce(() -> orders.place(oneShare, key));
+
+        assertThat(results).extracting(result -> result.resource().getId()).containsOnly(results.getFirst().resource().getId());
+        assertThat(results).extracting(IdempotentResult::replayed).containsExactlyInAnyOrder(false, true);
+        assertThat(accounts.tradeCount(user)).isEqualTo(1);
     }
 }

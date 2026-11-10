@@ -37,8 +37,20 @@ class TestAccounts {
         return userId;
     }
 
+    void deposit(int userId, int pesos) {
+        insertFilled(userId, PESOS, "CASH_IN", pesos, 1);
+    }
+
     int orderCount(int userId) {
         return jdbc.sql("select count(*) from orders where userid = ?").param(userId).query(Integer.class).single();
+    }
+
+    /** Buys and sells, leaving out the cash moves that set the user up. */
+    int tradeCount(int userId) {
+        return jdbc.sql("select count(*) from orders where userid = ? and side in ('BUY', 'SELL')")
+                .param(userId)
+                .query(Integer.class)
+                .single();
     }
 
     /** The stored time as UTC wall-clock text, whatever the session's time zone. */
