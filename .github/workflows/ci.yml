@@ -13,7 +13,8 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  test:
+    name: Test (mvn verify)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -26,7 +27,8 @@ jobs:
       - run: ./mvnw -B verify
 
   image:
-    needs: verify
+    name: Build image
+    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:

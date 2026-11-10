@@ -19,7 +19,7 @@ docker compose up -d
 
 **Con la base provista:** copiá `.env.example` a `.env`, completá la conexión y corré `./mvnw spring-boot:run`. El `.env` está en `.gitignore` y nunca se commitea. Si existe, tiene prioridad sobre la base local.
 
-La API queda en `http://localhost:8080`.
+La API queda en `http://localhost:8080`. Los logs salen como texto legible; con `--spring.profiles.active=json` salen como JSON (ECS), para una plataforma de logs.
 
 **Imagen Docker:** el `Dockerfile` arma una imagen lista para producción. La configuración entra solo por variables de entorno.
 
@@ -46,6 +46,9 @@ Usan un Postgres descartable (Testcontainers) con los mismos datos, así que nec
 | Método | Ruta | Qué hace |
 |---|---|---|
 | GET | `/instruments?query=banco` | Busca instrumentos por ticker o nombre |
+| GET | `/users/{userId}/portfolio` | Valor total, pesos disponibles y posiciones |
+
+Documentación interactiva de la API: <http://localhost:8080/swagger-ui.html>
 
 Hay ejemplos listos para ejecutar en [`http/`](http/) (REST Client de VS Code o IntelliJ).
 
