@@ -1,9 +1,9 @@
 package dev.cuccorese.brokerage.trading;
 
-import dev.cuccorese.brokerage.market.DailyPrice;
-import dev.cuccorese.brokerage.market.DailyPriceRepository;
 import dev.cuccorese.brokerage.market.Instrument;
 import dev.cuccorese.brokerage.market.InstrumentRepository;
+import dev.cuccorese.brokerage.market.Quote;
+import dev.cuccorese.brokerage.market.QuoteRepository;
 import dev.cuccorese.brokerage.shared.Currencies;
 import dev.cuccorese.brokerage.shared.Money;
 import dev.cuccorese.brokerage.shared.NotFoundException;
@@ -27,7 +27,7 @@ public class PortfolioService {
     private final UserRepository users;
     private final OrderRepository orders;
     private final InstrumentRepository instruments;
-    private final DailyPriceRepository dailyPrices;
+    private final QuoteRepository quotes;
 
     @Transactional(readOnly = true)
     public PortfolioView portfolioOf(Integer userId) {
@@ -39,12 +39,12 @@ public class PortfolioService {
         List<Integer> ids = open.stream().map(Position::getInstrumentId).toList();
         Map<Integer, Instrument> instrumentsById = instruments.findAllById(ids).stream()
                 .collect(Collectors.toMap(Instrument::getId, Function.identity()));
-        Map<Integer, DailyPrice> dailyPricesById = dailyPrices.findLatest(ids).stream()
-                .collect(Collectors.toMap(DailyPrice::getInstrumentId, Function.identity()));
+        Map<Integer, Quote> quotesById = quotes.findLatest(ids).stream()
+                .collect(Collectors.toMap(Quote::getInstrumentId, Function.identity()));
 
         List<PositionView> positions = open.stream()
                 .map(position -> view(position, instrumentsById.get(position.getInstrumentId()),
-                        dailyPricesById.get(position.getInstrumentId())))
+                        quotesById.get(position.getInstrumentId())))
                 .sorted(Comparator.comparing(PositionView::ticker))
                 .toList();
         Money totalValue = positions.stream()
@@ -60,10 +60,10 @@ public class PortfolioService {
                 userId, EnumSet.of(OrderStatus.FILLED, OrderStatus.NEW)));
     }
 
-    private static PositionView view(Position position, Instrument instrument, DailyPrice dailyPrice) {
-        Money marketValue = dailyPrice == null ? null : position.marketValue(dailyPrice.getClose()).rounded();
-        BigDecimal totalReturn = dailyPrice == null ? null : percent(position.totalReturn(dailyPrice.getClose()));
-        BigDecimal dailyReturn = dailyPrice == null ? null : percent(dailyPrice.dailyReturn());
+    private static PositionView view(Position position, Instrument instrument, Quote quote) {
+        Money marketValue = quote == null ? null : position.marketValue(quote.getClose()).rounded();
+        BigDecimal totalReturn = quote == null ? null : percent(position.totalReturn(quote.getClose()));
+        BigDecimal dailyReturn = quote == null ? null : percent(quote.dailyReturn());
         return new PositionView(instrument.getId(), instrument.getTicker(), instrument.getName(),
                 position.getQuantity(), marketValue, totalReturn, dailyReturn);
     }
