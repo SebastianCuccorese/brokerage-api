@@ -12,6 +12,13 @@ spring:
     # The provided database is version 1: baselining it lets V2+ apply on top of it.
     baseline-on-migrate: true
     baseline-version: 1
+  data:
+    web:
+      pageable:
+        default-page-size: 20
+        max-page-size: 100
+        # A stable {content, page} body instead of the internal shape of PageImpl.
+        serialization-mode: via-dto
   jackson:
     deserialization:
       # A share count of 1.5 is an error, not 1.

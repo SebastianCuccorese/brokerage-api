@@ -2,8 +2,10 @@ package dev.cuccorese.brokerage.market;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.query.EscapeCharacter;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,8 +20,8 @@ class InstrumentController {
     private final InstrumentRepository instruments;
 
     @GetMapping
-    List<InstrumentView> search(@RequestParam @NotBlank @Size(max = 100) String query) {
+    Page<InstrumentView> search(@RequestParam @NotBlank @Size(max = 100) String query, Pageable pageable) {
         String pattern = "%" + EscapeCharacter.DEFAULT.escape(query.strip()) + "%";
-        return instruments.searchTradable(pattern);
+        return instruments.searchTradable(pattern, PageRequest.of(pageable.getPageNumber(), pageable.getPageSize()));
     }
 }

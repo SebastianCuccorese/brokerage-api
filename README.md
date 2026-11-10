@@ -47,8 +47,9 @@ Usan un Postgres descartable (Testcontainers) con los mismos datos, así que nec
 
 | Método | Ruta | Qué hace |
 |---|---|---|
-| GET | `/instruments?query=banco` | Busca instrumentos por ticker o nombre |
+| GET | `/instruments?query=banco` | Busca instrumentos por ticker o nombre, sin distinguir acentos; paginado con `page` y `size` |
 | GET | `/users/{userId}/portfolio` | Valor total, pesos disponibles y posiciones |
+| GET | `/users/{userId}/orders?status=NEW&page=0&size=20` | Lista las órdenes del usuario, las más nuevas primero (`status`, `page` y `size` opcionales) |
 | POST | `/orders` | Envía una orden de compra o venta, de mercado o límite |
 | GET | `/orders/{orderId}` | Devuelve una orden |
 | POST | `/orders/{orderId}/cancel` | Cancela una orden abierta (`NEW`) |

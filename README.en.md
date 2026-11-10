@@ -47,8 +47,9 @@ They use a throwaway Postgres (Testcontainers) with the same data, so they need 
 
 | Method | Path | What it does |
 |---|---|---|
-| GET | `/instruments?query=banco` | Searches instruments by ticker or name |
+| GET | `/instruments?query=banco` | Searches instruments by ticker or name, accent-insensitive; paginated with `page` and `size` |
 | GET | `/users/{userId}/portfolio` | Total value, available pesos and positions |
+| GET | `/users/{userId}/orders?status=NEW&page=0&size=20` | Lists the user's orders, newest first (`status`, `page` and `size` optional) |
 | POST | `/orders` | Places a market or limit buy or sell order |
 | GET | `/orders/{orderId}` | Returns one order |
 | POST | `/orders/{orderId}/cancel` | Cancels an open (`NEW`) order |
