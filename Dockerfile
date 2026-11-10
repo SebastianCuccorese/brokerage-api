@@ -11,9 +11,9 @@ COPY src src
 RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -q -DskipTests package \
     && java -Djarmode=tools -jar target/brokerage-api-*.jar extract --layers --launcher --destination /workspace/layers
 
-FROM eclipse-temurin:21.0.13_9-jre-noble
+FROM eclipse-temurin:21.0.13_9-jre-alpine-3.23
 
-RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app
+RUN adduser -S -D -H -u 10001 -s /sbin/nologin app
 USER 10001:10001
 WORKDIR /app
 
