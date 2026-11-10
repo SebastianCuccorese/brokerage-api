@@ -1,50 +1,39 @@
 # Evolución
 
-Lo que se dejó afuera a propósito, y cómo se haría. Cada punto dice por qué no se hizo ahora. Las decisiones tomadas están en [decisions.md](decisions.md). · [English](evolution.en.md)
+Cómo crecería el sistema a medida que aumentan los usuarios, el volumen y las exigencias. Lo que ya está construido, y por qué, está en [decisions.md](decisions.md). · [English](evolution.en.md)
 
 ## Tabla de posiciones
 
-Hoy el portfolio recorre todas las órdenes del usuario en cada consulta. Con un historial largo eso deja de escalar.
+Hoy el portfolio recorre todas las órdenes del usuario en cada consulta, y con un historial largo eso deja de escalar. El paso es materializar las posiciones en una tabla `positions` (usuario, instrumento, cantidad, costo), y hay dos formas de mantenerla:
 
-- **Cómo:** una tabla `positions` (usuario, instrumento, cantidad, costo) que se actualiza en la misma transacción que ejecuta la orden, bajo el mismo bloqueo del usuario. El portfolio la lee directo, y recorrer las órdenes queda como reconstrucción o verificación.
-- **Por qué no ahora:** con estos volúmenes recorrer es instantáneo, y el enunciado pide calcular desde las órdenes. El cambio es local: la lectura cambia de fuente y la escritura suma un paso.
+- **En la misma transacción** que ejecuta la orden, bajo el bloqueo del usuario. El portfolio siempre está al día, a cambio de un paso más en cada escritura.
+- **De forma asíncrona:** la orden ejecutada publica un evento (`OrderFilled`) que un handler de Spring (`@TransactionalEventListener` después del commit) o un consumidor de una cola aplica sobre la tabla. Para no perder eventos si el proceso cae, se usa el patrón outbox: el evento se guarda en la misma transacción que la orden y se publica después. La escritura queda liviana y el portfolio pasa a ser *eventualmente consistente*.
+- En los dos casos, **la validación de saldo no lee la proyección**: sigue decidiendo sobre la fuente de verdad, con el usuario bloqueado, para que una proyección atrasada nunca habilite a gastar dos veces.
 
 ## Métricas y logs de negocio
 
-- **Cómo:** contadores como `orders.placed{side,type,status}` y `transfers.placed{type,status}` en Prometheus, y un evento en INFO por cada orden o transferencia (id, usuario, resultado y motivo), sin datos personales.
-- **Por qué no ahora:** la base técnica (métricas de la JVM y HTTP, request id) ya está. Lo de negocio no lo pide el enunciado.
+- Contadores como `orders.placed{side,type,status}` y `transfers.placed{type,status}` en Prometheus, que muestran el volumen y la tasa de rechazos por motivo.
+- Un evento en INFO por cada orden o transferencia (id, usuario, resultado y motivo), sin datos personales, que se correlaciona con el request id que ya viaja en cada línea.
 
 ## Autenticación y dueño de los recursos
 
-- **Cómo:** la API como resource server OAuth2 con JWT. El usuario sale del token, no del cuerpo ni de la ruta, y cancelar o leer una orden o una transferencia verifica que sea suya.
-- **Por qué no ahora:** el enunciado dice que no hace falta autenticación. Pedir un `userId` al cliente para "verificar" daría una seguridad que no existe.
+- La API como resource server OAuth2 con JWT. El usuario sale del token, no del cuerpo ni de la ruta.
+- Cancelar o leer una orden o una transferencia verifica que sea de quien la pide.
 
 ## Cuentas con cotitulares
 
-- **Cómo:** una tabla `accounts`, otra `account_holders` (usuario, cuenta y rol), órdenes y transferencias por cuenta, y el bloqueo sobre la cuenta en lugar del usuario.
-- **Por qué no ahora:** hoy la cuenta es una columna de `users`, en relación 1:1, y nada del enunciado pide compartirla.
+- Una tabla `accounts` y otra `account_holders` (usuario, cuenta y rol). Las órdenes y las transferencias pasan a ser de la cuenta, y el bloqueo de consistencia pasa del usuario a la cuenta.
 
 ## Ejecución de órdenes límite
 
-- **Cómo:** un proceso que, con cada precio nuevo, ejecuta las órdenes `NEW` cuyo límite se cruza, con soporte para ejecuciones parciales (cantidad ejecutada aparte de la pedida).
-- **Por qué no ahora:** el enunciado pide no simular el mercado.
-
-## Idempotencia
-
-- **Cómo:** un header `Idempotency-Key` en `POST /orders` y en las transferencias. Un reintento con la misma clave devuelve el resultado original en lugar de crear otra orden.
-- **Por qué no ahora:** es lo primero que se agregaría para clientes reales (un timeout no debería duplicar una compra), pero excede el challenge.
-
-## Búsqueda y listados
-
-- **Cómo:** búsqueda sin acentos con la extensión `unaccent` y un índice `pg_trgm`; paginación en la búsqueda y en los historiales; un `GET /users/{id}/orders`.
-- **Por qué no ahora:** el catálogo tiene 66 instrumentos y los historiales son cortos.
+- Un proceso que, con cada precio nuevo, ejecuta las órdenes `NEW` cuyo límite se cruza, con ejecuciones parciales (cantidad ejecutada aparte de la pedida). Encaja con el flujo de eventos de la tabla de posiciones: cada ejecución es un `OrderFilled` más.
 
 ## Varias monedas
 
-- **Cómo:** una columna de moneda en precios, órdenes y transferencias, y conversiones con JSR 354 (Moneta) cuando haga falta convertir. El resto del código ya trabaja con `Money`.
-- **Por qué no ahora:** todo está en pesos, como pide el enunciado.
+- Una columna de moneda en precios, órdenes y transferencias, y conversiones con JSR 354 (Moneta). El resto del código ya trabaja con `Money` y rechaza mezclar monedas.
 
 ## Imagen y despliegue
 
-- **Cómo:** un runtime recortado con `jlink` (la imagen pasa de ~400 MB a bastante menos), Swagger apagado en producción con un perfil, y la base con credenciales temporales en lugar de usuario y contraseña fijos.
-- **Por qué no ahora:** la imagen actual ya es reproducible, corre sin root y se escanea en cada PR.
+- Un runtime recortado con `jlink`, para bajar los ~400 MB actuales de la imagen.
+- Swagger apagado en producción con un perfil.
+- Credenciales temporales para la base en lugar de un usuario y una contraseña fijos.
