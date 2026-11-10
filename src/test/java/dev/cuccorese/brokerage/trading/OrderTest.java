@@ -10,7 +10,7 @@ import dev.cuccorese.brokerage.market.InstrumentType;
 import dev.cuccorese.brokerage.shared.Currencies;
 import dev.cuccorese.brokerage.shared.Money;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -18,7 +18,7 @@ class OrderTest {
 
     private static final int USER = 1;
     private static final int PAMP = 47;
-    private static final LocalDateTime NOW = LocalDateTime.of(2026, 11, 10, 11, 30);
+    private static final Instant NOW = Instant.parse("2026-11-10T14:30:00Z");
 
     private static Money ars(String amount) {
         return Money.of(Currencies.ARS, new BigDecimal(amount));

@@ -76,7 +76,7 @@ class OrdersTest {
                 .bodyJson().isLenientlyEqualTo("""
                         {"userId": %d, "instrumentId": 47, "side": "BUY", "type": "MARKET", "size": 10,
                          "price": {"currency": "ARS", "amount": 925.85},
-                         "status": "FILLED", "datetime": "2026-11-10T11:30:00", "rejectionReason": null}
+                         "status": "FILLED", "datetime": "2026-11-10T14:30:00Z", "rejectionReason": null}
                         """.formatted(user));
         assertThat(portfolio(user)).hasStatusOk().bodyJson().isLenientlyEqualTo("""
                 {"totalValue": {"currency": "ARS", "amount": 10000.00},
@@ -201,14 +201,14 @@ class OrdersTest {
     }
 
     @Test
-    void storesTheOrderTimeAsBuenosAiresLocalTime() {
+    void storesTheOrderTimeAsAnInstant() {
         int user = accounts.fundedUser(10_000);
 
         int orderId = idOf(place("""
                 {"userId": %d, "instrumentId": 47, "side": "BUY", "type": "MARKET", "size": 1}
                 """.formatted(user)));
 
-        assertThat(accounts.storedDatetime(orderId)).isEqualTo("2026-11-10 11:30:00");
+        assertThat(accounts.storedDatetimeInUtc(orderId)).isEqualTo("2026-11-10 14:30:00");
     }
 
     static Stream<Arguments> invalidOrders() {
@@ -308,7 +308,7 @@ class OrdersTest {
                 .bodyJson().isStrictlyEqualTo("""
                         {"id": %d, "userId": %d, "instrumentId": 47, "side": "BUY", "type": "LIMIT", "size": 3,
                          "price": {"currency": "ARS", "amount": 910.50},
-                         "status": "NEW", "datetime": "2026-11-10T11:30:00", "rejectionReason": null}
+                         "status": "NEW", "datetime": "2026-11-10T14:30:00Z", "rejectionReason": null}
                         """.formatted(orderId, user));
     }
 

@@ -1,7 +1,7 @@
 package dev.cuccorese.brokerage.trading;
 
 import dev.cuccorese.brokerage.shared.Money;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /** {@code rejectionReason} says why the market rejected the order; null for any other status. */
 public record OrderView(
@@ -13,7 +13,7 @@ public record OrderView(
         Integer size,
         Money price,
         OrderStatus status,
-        LocalDateTime datetime,
+        Instant datetime,
         RejectionReason rejectionReason) {
 
     static OrderView of(Order order) {

@@ -54,7 +54,7 @@ A market order executes at the latest `close` and is `FILLED`; a limit order sta
 - **Rejections answer 201:** the rejected order exists, so the response is 201 with `Location`, `status: REJECTED` and a `rejectionReason`: `INSUFFICIENT_CASH`, `INSUFFICIENT_SHARES` (open sells count), `AMOUNT_BELOW_ONE_SHARE` or `NO_MARKET_DATA`.
 - **The reason is stored** in the `rejectionReason` column (migration V3), so rejections can be audited: it comes back when the order is placed and whenever it is read later. It is `null` for orders that were not rejected.
 - **One user at a time:** placing an order locks the user's row before computing their balance, so two concurrent orders are decided one after the other and cannot spend the same pesos. Cancelling locks the order, so two cancels cannot both see it open.
-- **Local time:** `datetime` is stored in Buenos Aires time without a zone, like the provided orders (11:13 to 16:11, the local market hours). The clock is injected, so tests fix the time.
+- **Time in UTC:** `datetime` is stored as an instant (`timestamptz`) and the API returns it as ISO-8601 UTC, for example `2026-11-10T14:30:00Z`. The provided orders held Buenos Aires time without a zone (11:13 to 16:11, the local market hours); migration V4 converted them once, and the portfolio's chronological order does not change. The time comes from a single UTC `Clock`, which tests replace to fix it.
 - **Limit orders are not executed:** they stay `NEW` and reserve pesos or shares until cancelled. The market is not simulated, so nothing matches them against a price.
 
 ## Logs

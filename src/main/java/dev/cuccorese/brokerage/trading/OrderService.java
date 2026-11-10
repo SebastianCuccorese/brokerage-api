@@ -7,7 +7,7 @@ import dev.cuccorese.brokerage.market.QuoteRepository;
 import dev.cuccorese.brokerage.shared.Money;
 import dev.cuccorese.brokerage.shared.NotFoundException;
 import java.time.Clock;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
@@ -38,7 +38,7 @@ public class OrderService {
         Optional<Money> lastClose = quotes.findLatest(List.of(instrument.getId())).stream()
                 .findFirst()
                 .map(Quote::getClose);
-        LocalDateTime now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.SECONDS);
+        Instant now = Instant.now(clock).truncatedTo(ChronoUnit.SECONDS);
         return orders.save(Order.place(request, instrument, lastClose, orders.ledgerOf(request.userId()), now));
     }
 

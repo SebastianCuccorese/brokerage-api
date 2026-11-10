@@ -41,14 +41,18 @@ class TestAccounts {
         return jdbc.sql("select count(*) from orders where userid = ?").param(userId).query(Integer.class).single();
     }
 
-    String storedDatetime(int orderId) {
-        return jdbc.sql("select datetime::text from orders where id = ?").param(orderId).query(String.class).single();
+    /** The stored time as UTC wall-clock text, whatever the session's time zone. */
+    String storedDatetimeInUtc(int orderId) {
+        return jdbc.sql("select (datetime at time zone 'UTC')::text from orders where id = ?")
+                .param(orderId)
+                .query(String.class)
+                .single();
     }
 
     private void insertFilled(int userId, int instrumentId, String side, int size, int price) {
         jdbc.sql("""
                 insert into orders (instrumentid, userid, size, price, type, side, status, datetime)
-                values (?, ?, ?, ?, 'MARKET', ?, 'FILLED', '2023-07-12 10:00:00')
+                values (?, ?, ?, ?, 'MARKET', ?, 'FILLED', '2023-07-12 10:00:00-03')
                 """)
                 .params(instrumentId, userId, size, price, side)
                 .update();

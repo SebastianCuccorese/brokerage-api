@@ -13,7 +13,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Optional;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -52,13 +52,13 @@ public class Order {
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
 
-    private LocalDateTime datetime;
+    private Instant datetime;
 
     @Column(name = "rejectionreason")
     @Enumerated(EnumType.STRING)
     private RejectionReason rejectionReason;
 
-    private Order(PlaceOrder request, Optional<Money> executionPrice, LocalDateTime at) {
+    private Order(PlaceOrder request, Optional<Money> executionPrice, Instant at) {
         this.userId = request.userId();
         this.instrumentId = request.instrumentId();
         this.side = request.side();
@@ -76,7 +76,7 @@ public class Order {
      * @throws InvalidOrderException when the instrument is the cash currency
      */
     public static Order place(PlaceOrder request, Instrument instrument, Optional<Money> lastClose,
-            Ledger ledger, LocalDateTime at) {
+            Ledger ledger, Instant at) {
         if (instrument.getType() == InstrumentType.CURRENCY) {
             throw new InvalidOrderException(instrument.getTicker() + " is cash, not a tradable instrument");
         }
