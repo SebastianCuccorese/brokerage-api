@@ -29,13 +29,15 @@ Todo importe es un `Money` (moneda + monto), nunca un número suelto. Hoy solo h
 
 ## Búsqueda de instrumentos
 
-Busca el texto en el ticker o en el nombre, sin distinguir mayúsculas, y ordena por ticker.
+Busca el texto en el ticker o en el nombre, sin distinguir mayúsculas ni acentos ("compania" encuentra "Compañía"), y ordena por ticker. Devuelve una página, no la lista entera.
 
 - El peso no aparece: es la caja de la cuenta, no un activo que se compre.
 - Los tipos se exponen en inglés (`STOCK`, `CURRENCY`). Un converter traduce los valores de la base (`ACCIONES`, `MONEDA`), así el vocabulario de la tabla no se filtra al modelo.
 - `%` y `_` se buscan como texto literal, no como comodines.
 - Es una proyección directa a la respuesta. No hay reglas que proteger, así que no pasa por un servicio.
-- Mejora posible: ignorar acentos ("compania" encontraría "Compañía") con la extensión `unaccent` de Postgres.
+- **Acentos:** la migración V6 activa las extensiones `unaccent` y `pg_trgm` (ambas *trusted*: las puede crear el dueño de la base, sin superusuario) y la búsqueda compara el texto sin acentos y en minúsculas. `unaccent` solo es `STABLE` porque lee un diccionario, y un índice exige una función `IMMUTABLE`; por eso hay un envoltorio `immutable_unaccent` que fija el diccionario por nombre, el patrón habitual.
+- **Índices:** un `LIKE '%texto%'` no puede usar un índice común, así que hay índices GIN trigram sobre el ticker y el nombre sin acentos. La consulta repite esa expresión exacta; con solo 66 instrumentos el planificador puede preferir recorrer la tabla, pero el índice queda disponible para cuando crezca.
+- **Paginación:** `page` (desde 0) y `size` (20 por defecto, máximo 100; uno mayor se recorta a 100). La respuesta es `{"content": [...], "page": {"size", "number", "totalElements", "totalPages"}}`, la forma estable de Spring Data, no la interna de `PageImpl`. El orden es fijo y un `sort` del cliente se ignora. Rige también para el listado de órdenes.
 
 ## Portfolio
 
@@ -55,6 +57,7 @@ Una orden de mercado se ejecuta al último `close` y queda `FILLED`. Una límite
 - **El motivo se guarda** en la columna `rejectionReason` (migración V3), para poder auditar los rechazos; es `null` en las demás órdenes.
 - **Un usuario a la vez:** el envío bloquea la fila del usuario antes de calcular su saldo, así dos órdenes simultáneas no gastan los mismos pesos. La cancelación bloquea la orden, para que dos cancelaciones no la vean abierta a la vez.
 - **Hora en UTC:** `datetime` es un instante (`timestamptz`) y la API lo devuelve en ISO-8601 UTC (`2026-11-10T14:30:00Z`). Las órdenes provistas tenían la hora de Buenos Aires sin zona (de 11:13 a 16:11, el horario del mercado local); la migración V4 las convirtió una sola vez, sin cambiar su orden. La hora sale de un único `Clock`, que los tests fijan.
+- **Listado:** `GET /users/{userId}/orders` devuelve las órdenes del usuario, las más nuevas primero (fecha y, a igual fecha, id descendente), paginadas, con el mismo formato que una orden sola. `status` opcional filtra por estado; un valor que no existe es un 400 y un usuario desconocido, un 404.
 - **Cancelar no verifica al dueño:** no se comprueba que la orden sea de quien lo pide, porque no hay autenticación, y un `userId` enviado por el cliente solo parecería seguridad.
 
 ## Logs

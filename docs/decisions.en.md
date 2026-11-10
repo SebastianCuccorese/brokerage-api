@@ -29,13 +29,15 @@ Every amount is a `Money` (currency + amount), never a bare number. Today there 
 
 ## Instrument search
 
-Searches the text in the ticker or the name, case-insensitive, ordered by ticker.
+Searches the text in the ticker or the name, ignoring case and accents ("compania" finds "Compañía"), ordered by ticker. It returns a page, not the whole list.
 
 - The peso is left out: it is the account's cash, not an asset you buy.
 - Types are exposed in English (`STOCK`, `CURRENCY`). A converter translates the database values (`ACCIONES`, `MONEDA`), so the table's vocabulary does not leak into the model.
 - `%` and `_` are searched as literal text, not as wildcards.
 - It is a direct projection to the response. There are no rules to protect, so it skips the service layer.
-- Possible improvement: ignore accents ("compania" would find "Compañía") with Postgres's `unaccent` extension.
+- **Accents:** migration V6 enables the `unaccent` and `pg_trgm` extensions (both trusted: the database owner can create them, no superuser needed) and the search compares lower-cased text without accents. `unaccent` is only `STABLE` because it reads a dictionary, and an index requires an `IMMUTABLE` function; hence the `immutable_unaccent` wrapper, which pins the dictionary by name, the usual pattern.
+- **Indexes:** a `LIKE '%text%'` cannot use a plain index, so there are GIN trigram indexes on the unaccented ticker and name. The query repeats that exact expression; with only 66 instruments the planner may still prefer scanning the table, but the index is there for when it grows.
+- **Pagination:** `page` (from 0) and `size` (default 20, maximum 100; a larger one is capped to 100). The response is `{"content": [...], "page": {"size", "number", "totalElements", "totalPages"}}`, Spring Data's stable shape rather than the internals of `PageImpl`. The order is fixed and a client `sort` is ignored. It also applies to the order listing.
 
 ## Portfolio
 
@@ -55,6 +57,7 @@ A market order executes at the latest `close` and is `FILLED`. A limit order sta
 - **The reason is stored** in the `rejectionReason` column (migration V3), so rejections can be audited; it is `null` for every other order.
 - **One user at a time:** placing an order locks the user's row before computing their balance, so two concurrent orders cannot spend the same pesos. Cancelling locks the order, so two cancels cannot both see it open.
 - **Time in UTC:** `datetime` is an instant (`timestamptz`) and the API returns it as ISO-8601 UTC (`2026-11-10T14:30:00Z`). The provided orders held Buenos Aires time without a zone (11:13 to 16:11, the local market hours); migration V4 converted them once, keeping their order. The time comes from a single `Clock`, which tests fix.
+- **Listing:** `GET /users/{userId}/orders` returns the user's orders, newest first (time, then descending id for equal times), paginated, in the same format as a single order. An optional `status` filters by state; a value that does not exist is a 400 and an unknown user a 404.
 - **Cancel does not check the owner:** nothing verifies that the order belongs to the caller, because there is no authentication, and a `userId` sent by the client would only look like security.
 
 ## Logs
