@@ -17,6 +17,7 @@ El esquema provisto es la versión 1. Al arrancar, la aplicación toma cualquier
 
 - **Consecuencia:** el primer arranque contra la base provista la modifica: agrega índices y, más adelante, columnas, y crea la tabla `flyway_schema_history`.
 - **Migraciones** en `src/main/resources/db/migration`. `db/01-database.sql` queda como el estado provisto: la base local y la de tests lo cargan al crearse.
+- **Misma versión que la base provista:** Postgres 18.6 en la base local y en los tests, para que lo que se prueba sea lo que corre.
 
 ## Dinero
 

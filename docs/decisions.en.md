@@ -17,6 +17,7 @@ The provided schema is version 1. On startup the application takes any database 
 
 - **Consequence:** the first run against the provided database alters it: it adds indexes and, later, columns, and creates the `flyway_schema_history` table.
 - **Migrations** live in `src/main/resources/db/migration`. `db/01-database.sql` stays as the provided state: the local and test databases load it when they are created.
+- **Same version as the provided database:** Postgres 18.6 locally and in the tests, so what is tested is what runs.
 
 ## Money
 
