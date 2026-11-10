@@ -1,5 +1,7 @@
 # brokerage-api
 
+[![CI](https://github.com/SebastianCuccorese/brokerage-api/actions/workflows/ci.yml/badge.svg)](https://github.com/SebastianCuccorese/brokerage-api/actions/workflows/ci.yml)
+
 API REST de un broker: portfolio, búsqueda de instrumentos y órdenes de mercado y límite. Java 21 y Spring Boot 4. · [English](README.en.md)
 
 Las decisiones de diseño y el porqué de cada una están en [docs/decisions.md](docs/decisions.md).
@@ -19,7 +21,7 @@ docker compose up -d
 
 Al arrancar, la aplicación aplica las migraciones pendientes, **también sobre la base provista**: la primera vez le agrega índices y columnas y crea la tabla `flyway_schema_history`. Usá la conexión directa a la base, no un pooler en modo transacción (por ejemplo, un host con `-pooler`): las migraciones necesitan una sesión estable.
 
-La API queda en `http://localhost:8080`.
+La API queda en `http://localhost:8080`. Los logs salen como texto legible; con `--spring.profiles.active=json` salen como JSON (ECS), para una plataforma de logs.
 
 ## Tests
 
@@ -34,6 +36,9 @@ Usan un Postgres descartable (Testcontainers) con los mismos datos, así que nec
 | Método | Ruta | Qué hace |
 |---|---|---|
 | GET | `/instruments?query=banco` | Busca instrumentos por ticker o nombre |
+| GET | `/users/{userId}/portfolio` | Valor total, pesos disponibles y posiciones |
+
+Documentación interactiva de la API: <http://localhost:8080/swagger-ui.html>
 
 Hay ejemplos listos para ejecutar en [`http/`](http/) (REST Client de VS Code o IntelliJ).
 

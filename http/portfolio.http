@@ -1,0 +1,7 @@
+@baseUrl = http://localhost:8080
+
+### Portfolio of the seed user
+GET {{baseUrl}}/users/1/portfolio
+
+### Unknown user (404)
+GET {{baseUrl}}/users/999/portfolio

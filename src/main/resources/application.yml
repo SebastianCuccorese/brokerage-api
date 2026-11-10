@@ -25,6 +25,14 @@ spring:
         jdbc:
           time_zone: UTC
 
+app:
+  # Filtered from the POM at build time so the OpenAPI document reports the project version.
+  version: "@project.version@"
+
+logging:
+  pattern:
+    correlation: '%replace([%X{requestId:-}] ){"\[\] ", ""}'
+
 management:
   endpoints:
     web:
