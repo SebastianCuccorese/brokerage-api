@@ -146,7 +146,7 @@ class OrdersTest {
                         """);
         assertThat(mvc.get().uri("/orders/{orderId}", idOf(result))).hasStatusOk()
                 .bodyJson().isLenientlyEqualTo("""
-                        {"status": "REJECTED", "rejectionReason": null}
+                        {"status": "REJECTED", "rejectionReason": "INSUFFICIENT_CASH"}
                         """);
         assertThat(portfolio(user)).bodyJson().extractingPath("$.availableCash.amount").isEqualTo(1000.00);
     }

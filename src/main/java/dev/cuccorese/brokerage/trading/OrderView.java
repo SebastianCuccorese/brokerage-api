@@ -3,7 +3,7 @@ package dev.cuccorese.brokerage.trading;
 import dev.cuccorese.brokerage.shared.Money;
 import java.time.LocalDateTime;
 
-/** {@code rejectionReason} is only known in the response that placed the order; it is not stored. */
+/** {@code rejectionReason} says why the market rejected the order; null for any other status. */
 public record OrderView(
         Integer id,
         Integer userId,

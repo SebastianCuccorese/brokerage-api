@@ -21,7 +21,7 @@ class SchemaMigrationsTest {
         List<String> history = jdbc.sql("SELECT version || ':' || type FROM flyway_schema_history ORDER BY installed_rank")
                 .query(String.class).list();
 
-        assertThat(history).containsExactly("1:BASELINE", "2:SQL");
+        assertThat(history).containsExactly("1:BASELINE", "2:SQL", "3:SQL");
     }
 
     @Test

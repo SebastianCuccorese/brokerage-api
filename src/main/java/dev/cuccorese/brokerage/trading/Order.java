@@ -12,7 +12,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -22,8 +21,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * An order and the rules of its life: {@link #place} decides the status it starts in, and
- * {@link #cancel} is the only transition after that. The rejection reason is told to the
- * caller but not stored, because the provided schema has no column for it.
+ * {@link #cancel} is the only transition after that.
  */
 @Entity
 @Table(name = "orders")
@@ -56,7 +54,8 @@ public class Order {
 
     private LocalDateTime datetime;
 
-    @Transient
+    @Column(name = "rejectionreason")
+    @Enumerated(EnumType.STRING)
     private RejectionReason rejectionReason;
 
     private Order(PlaceOrder request, Optional<Money> executionPrice, LocalDateTime at) {
