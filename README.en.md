@@ -18,3 +18,12 @@ Every amount is a `Money` (currency + amount), never a bare number. Today there 
 - **Precision:** `BigDecimal` in every calculation. It is rounded once, when responding, to the currency's decimals (half-even).
 - **No mixing:** combining different currencies is an error, never an implicit conversion.
 - **Database:** the price columns do not store the currency and are read as ARS. Supporting another currency would mean adding that column.
+
+## Instrument search
+
+`GET /instruments?query=banco` returns the instruments whose ticker or name contains the text, case-insensitive and ordered by ticker.
+
+- The peso (`MONEDA`) is left out: it is the account's cash, not an asset you buy.
+- `%` and `_` are searched as literal text, not as wildcards.
+- It is a direct projection to the response. There are no rules to protect, so it skips the service layer.
+- Possible improvement: ignore accents ("compania" would find "Compañía") with Postgres's `unaccent` extension.
