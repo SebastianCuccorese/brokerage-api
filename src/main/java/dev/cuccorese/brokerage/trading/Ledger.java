@@ -1,7 +1,6 @@
 package dev.cuccorese.brokerage.trading;
 
 import dev.cuccorese.brokerage.shared.Money;
-import java.math.BigDecimal;
 import java.util.Currency;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -9,8 +8,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A user's cash and positions, replayed from their orders in chronological order.
- * Filled orders move cash and shares; new (open) orders only reserve them.
+ * A user's cash and positions. Completed transfers move cash, and orders are replayed in
+ * chronological order: filled ones move cash and shares, new (open) ones only reserve them.
+ * Transfers need no place in that chronology because they only add to or take from the cash.
  */
 public class Ledger {
 
@@ -26,10 +26,21 @@ public class Ledger {
         this.reservedCash = Money.zero(currency);
     }
 
-    public static Ledger replay(Currency currency, List<Order> chronologicalOrders) {
+    public static Ledger replay(Currency currency, List<Transfer> transfers, List<Order> chronologicalOrders) {
         Ledger ledger = new Ledger(currency);
+        transfers.forEach(ledger::apply);
         chronologicalOrders.forEach(ledger::apply);
         return ledger;
+    }
+
+    private void apply(Transfer transfer) {
+        switch (transfer.getStatus()) {
+            case COMPLETED -> cash = switch (transfer.getType()) {
+                case CASH_IN -> cash.plus(transfer.getAmount());
+                case CASH_OUT -> cash.minus(transfer.getAmount());
+            };
+            case REJECTED -> { }
+        }
     }
 
     private void apply(Order order) {
@@ -40,12 +51,9 @@ public class Ledger {
         }
     }
 
-    /** Cash transfers count their {@code size} as the amount, as the statement asks. */
     private void fill(Order order) {
         long size = order.getSize();
         switch (order.getSide()) {
-            case CASH_IN -> cash = cash.plus(Money.of(currency, BigDecimal.valueOf(size)));
-            case CASH_OUT -> cash = cash.minus(Money.of(currency, BigDecimal.valueOf(size)));
             case BUY -> {
                 cash = cash.minus(order.getPrice().times(size));
                 position(order.getInstrumentId()).apply(size, order.getPrice());
@@ -61,7 +69,6 @@ public class Ledger {
         switch (order.getSide()) {
             case BUY -> reservedCash = reservedCash.plus(order.getPrice().times(order.getSize()));
             case SELL -> reservedShares.merge(order.getInstrumentId(), (long) order.getSize(), Long::sum);
-            case CASH_IN, CASH_OUT -> { }
         }
     }
 

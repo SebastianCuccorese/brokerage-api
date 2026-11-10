@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PortfolioService {
 
     private final UserRepository users;
-    private final OrderRepository orders;
+    private final Ledgers ledgers;
     private final InstrumentRepository instruments;
     private final QuoteRepository quotes;
 
@@ -33,7 +33,7 @@ public class PortfolioService {
         if (!users.existsById(userId)) {
             throw new NotFoundException(ErrorCode.USER_NOT_FOUND, "User", userId);
         }
-        Ledger ledger = orders.ledgerOf(userId);
+        Ledger ledger = ledgers.of(userId);
         List<Position> open = ledger.openPositions();
         List<Integer> ids = open.stream().map(Position::getInstrumentId).toList();
         Map<Integer, Instrument> instrumentsById = instruments.findAllById(ids).stream()

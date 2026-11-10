@@ -24,6 +24,7 @@ public class OrderService {
     private final InstrumentRepository instruments;
     private final QuoteRepository quotes;
     private final OrderRepository orders;
+    private final Ledgers ledgers;
     private final Clock clock;
 
     /**
@@ -40,7 +41,7 @@ public class OrderService {
                 .findFirst()
                 .map(Quote::getClose);
         Instant now = Instant.now(clock).truncatedTo(ChronoUnit.SECONDS);
-        return orders.save(Order.place(request, instrument, lastClose, orders.ledgerOf(request.userId()), now));
+        return orders.save(Order.place(request, instrument, lastClose, ledgers.of(request.userId()), now));
     }
 
     /** Locks the order so that two concurrent cancels cannot both see it open. */
