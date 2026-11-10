@@ -65,3 +65,13 @@ Each request carries an id (`X-Request-Id`) that appears on all its log lines an
 - **Locally:** readable text, with the id in brackets on every line.
 - **Log platform:** the `json` profile emits ECS-format JSON (Spring Boot's built-in support), with the id as the `requestId` field.
 - **No distributed tracing:** with a single service it is not worth its cost.
+
+## Deployment
+
+The application is deployed as a container image. It is layered so a code change only rebuilds the last layer and the rest comes from cache.
+
+- **Layers:** dependencies, loader, snapshots and code, from least to most frequently changing.
+- **Runtime:** JRE only, with an unprivileged user and a heap sized from the container's memory limit.
+- **Configuration:** only through environment variables (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`); the image carries no secrets.
+- **Probes:** `/actuator/health/liveness` and `/actuator/health/readiness` for the orchestrator; it is the only Actuator endpoint exposed.
+- **CI:** the image is built on every PR and published from `main`. It is scanned with Trivy and fails on critical vulnerabilities that have a fix.
