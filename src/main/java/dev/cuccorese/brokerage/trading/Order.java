@@ -90,6 +90,24 @@ public class Order {
         return order;
     }
 
+    /**
+     * A deposit recorded like the provided ones: a filled CASH_IN of the {@code cash} instrument
+     * whose size is the amount in pesos. Cash transfers have no endpoint, since the statement
+     * asks for buy and sell orders only, so nothing outside tests creates one yet.
+     */
+    static Order deposit(Integer userId, Instrument cash, int pesos, Instant at) {
+        Order order = new Order();
+        order.userId = userId;
+        order.instrumentId = cash.getId();
+        order.side = OrderSide.CASH_IN;
+        order.type = OrderType.MARKET;
+        order.status = OrderStatus.FILLED;
+        order.size = pesos;
+        order.price = BigDecimal.ONE;
+        order.datetime = at;
+        return order;
+    }
+
     private Optional<RejectionReason> rejectionAgainst(Ledger ledger) {
         if (price == null) {
             return Optional.of(RejectionReason.NO_MARKET_DATA);
