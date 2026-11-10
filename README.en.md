@@ -31,7 +31,7 @@ docker run --rm -p 8080:8080 \
   brokerage-api
 ```
 
-CI builds it on every pull request and, on `main`, publishes it to `ghcr.io/sebastiancuccorese/brokerage-api` tagged `latest` and with the commit SHA. The probes are at `/actuator/health/liveness` and `/actuator/health/readiness`.
+CI builds it on every pull request and, on `main`, publishes it to `ghcr.io/sebastiancuccorese/brokerage-api` tagged `latest` and with the commit SHA. The probes (`/actuator/health/liveness` and `/actuator/health/readiness`) and the metrics (`/actuator/prometheus`) are served on port 8081, not on the API's 8080; add `-p 8081:8081` to reach them from the host.
 
 ## Tests
 

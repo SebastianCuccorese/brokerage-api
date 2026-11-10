@@ -62,5 +62,14 @@ The application is deployed as a container image. It is layered so a code change
 - **Layers:** dependencies, loader, snapshots and code, from least to most frequently changing.
 - **Runtime:** JRE only, with an unprivileged user and a heap sized from the container's memory limit.
 - **Configuration:** only through environment variables (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`); the image carries no secrets.
-- **Probes:** `/actuator/health/liveness` and `/actuator/health/readiness` for the orchestrator; it is the only Actuator endpoint exposed.
+- **Probes:** `/actuator/health/liveness` and `/actuator/health/readiness` for the orchestrator, on the management port (see [Observability](#observability)).
 - **CI:** the image is built on every PR and published from `main`. It is scanned with Trivy and fails on critical vulnerabilities that have a fix.
+
+## Observability
+
+The application publishes its metrics in Prometheus format (`/actuator/prometheus`), the de facto standard for scraping, with no custom metrics code.
+
+- **What is measured:** the JVM, HTTP requests (`http.server.requests`), the Hikari connection pool and Tomcat, all tagged `application=brokerage-api`.
+- **Management port:** Actuator is served on 8081 and the API on 8080. This way metrics and probes are not exposed to the internet through the API's ingress; only whoever is inside the network reaches them.
+- **Liveness and readiness:** liveness says whether the process should be restarted and readiness whether it can take traffic (it includes the database).
+- **Business:** order metrics come with the order logging step.
