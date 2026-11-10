@@ -44,7 +44,7 @@ public class Idempotency {
         if (key.isEmpty()) {
             return IdempotentResult.created(create.get());
         }
-        Fingerprint request = Fingerprint.of(command);
+        RequestHash request = RequestHash.of(command);
         Optional<IdempotencyRecord> earlier = records.findByUserIdAndOperationAndIdempotencyKey(
                 userId, operation, key.get().value());
         if (earlier.isPresent()) {

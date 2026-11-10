@@ -62,3 +62,15 @@ POST {{baseUrl}}/orders/2/cancel
 
 ### Unknown order (404)
 GET {{baseUrl}}/orders/999
+
+### A user's orders, newest first, paginated
+GET {{baseUrl}}/users/1/orders?size=5
+
+### Only the open ones
+GET {{baseUrl}}/users/1/orders?status=NEW
+
+### A status that does not exist (400)
+GET {{baseUrl}}/users/1/orders?status=PENDING
+
+### Unknown user (404)
+GET {{baseUrl}}/users/999/orders

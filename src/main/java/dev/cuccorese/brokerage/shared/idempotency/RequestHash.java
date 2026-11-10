@@ -11,18 +11,19 @@ import java.util.HexFormat;
 import java.util.stream.Collectors;
 
 /**
- * SHA-256 of a parsed command, so two requests that ask for the same thing match whatever their
- * JSON looked like: field order, spacing, or {@code 1000} against {@code 1000.00}. Every record
- * component counts, including ones added later, so a new field can never be left out of the
- * comparison by mistake.
+ * SHA-256 of a parsed command, stored with an idempotency key only to check that a reused key
+ * carries the same request; it detects nothing on its own. Two requests that ask for the same
+ * thing match whatever their JSON looked like: field order, spacing, or {@code 1000} against
+ * {@code 1000.00}. Every record component counts, including ones added later, so a new field can
+ * never be left out of the comparison by mistake.
  */
-public record Fingerprint(String sha256) {
+public record RequestHash(String sha256) {
 
-    public static Fingerprint of(Record command) {
+    public static RequestHash of(Record command) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")
                     .digest(canonical(command).getBytes(StandardCharsets.UTF_8));
-            return new Fingerprint(HexFormat.of().formatHex(digest));
+            return new RequestHash(HexFormat.of().formatHex(digest));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("Every JVM provides SHA-256", e);
         }
