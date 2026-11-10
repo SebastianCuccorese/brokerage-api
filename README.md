@@ -4,7 +4,11 @@
 
 API REST de un broker: portfolio, búsqueda de instrumentos, órdenes de mercado y límite, y depósitos y retiros de pesos. Java 21 y Spring Boot 4. · [English](README.en.md)
 
-Las decisiones de diseño y el porqué de cada una están en [docs/decisions.md](docs/decisions.md).
+## Documentación
+
+- [Decisiones de negocio](docs/decisions.md): qué hace la API y por qué.
+- [Decisiones técnicas](docs/technical.md): cómo está construida y por qué, con diagramas.
+- [Evolución](docs/evolution.md): cómo crecería el sistema.
 
 ## Levantar el proyecto
 
