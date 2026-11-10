@@ -53,4 +53,4 @@ Each request carries an id (`X-Request-Id`) that appears on all its log lines an
 - **Request id:** the client's value is used only when it is 1 to 64 characters of `[A-Za-z0-9._-]`; otherwise a UUID is generated. It is validated so a client cannot inject line breaks or fake text into the logs.
 - **Locally:** readable text, with the id in brackets on every line.
 - **Log platform:** the `json` profile emits ECS-format JSON (Spring Boot's built-in support), with the id as the `requestId` field.
-- **No tracing or metrics:** with a single service they are not worth their cost.
+- **No distributed tracing:** with a single service it is not worth its cost.

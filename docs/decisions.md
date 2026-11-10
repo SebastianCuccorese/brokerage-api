@@ -53,4 +53,4 @@ Cada request lleva un id (`X-Request-Id`) que aparece en todas sus líneas de lo
 - **Id de request:** se toma el que manda el cliente solo si son 1 a 64 caracteres de `[A-Za-z0-9._-]`; si no, se genera un UUID. Se valida para que un cliente no pueda inyectar saltos de línea o texto falso en los logs.
 - **Local:** texto legible, con el id entre corchetes en cada línea.
 - **Plataforma de logs:** el perfil `json` emite JSON en formato ECS (el soporte de Spring Boot), con el id como campo `requestId`.
-- **Sin tracing ni métricas:** con un solo servicio no aportan lo que cuestan.
+- **Sin tracing distribuido:** con un solo servicio no aporta lo que cuesta.
