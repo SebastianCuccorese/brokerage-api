@@ -8,13 +8,17 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/brokerage}
     username: ${DB_USERNAME:brokerage}
     password: ${DB_PASSWORD:brokerage}
+  flyway:
+    # The provided database is version 1: baselining it lets V2+ apply on top of it.
+    baseline-on-migrate: true
+    baseline-version: 1
   mvc:
     problemdetails:
       enabled: true
   jpa:
     open-in-view: false
     hibernate:
-      # The schema is owned by the provided database; the app never creates or alters it.
+      # Flyway owns schema changes; Hibernate only validates them.
       ddl-auto: validate
     properties:
       hibernate:

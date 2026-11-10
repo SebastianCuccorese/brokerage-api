@@ -17,6 +17,8 @@ docker compose up -d
 
 **With the provided database:** copy `.env.example` to `.env`, fill in the connection and run `./mvnw spring-boot:run`. `.env` is in `.gitignore` and never committed. When it exists, it takes precedence over the local database.
 
+On startup the application applies the pending migrations, including on the provided database.
+
 The API listens on `http://localhost:8080`.
 
 ## Tests

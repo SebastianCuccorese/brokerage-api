@@ -17,6 +17,8 @@ docker compose up -d
 
 **Con la base provista:** copiá `.env.example` a `.env`, completá la conexión y corré `./mvnw spring-boot:run`. El `.env` está en `.gitignore` y nunca se commitea. Si existe, tiene prioridad sobre la base local.
 
+Al arrancar, la aplicación aplica las migraciones pendientes, también sobre la base provista.
+
 La API queda en `http://localhost:8080`.
 
 ## Tests
