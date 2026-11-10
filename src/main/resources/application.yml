@@ -15,6 +15,13 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  data:
+    web:
+      pageable:
+        default-page-size: 20
+        max-page-size: 100
+        # A stable {content, page} body instead of the internal shape of PageImpl.
+        serialization-mode: via-dto
   jackson:
     deserialization:
       # A share count of 1.5 is an error, not 1.
