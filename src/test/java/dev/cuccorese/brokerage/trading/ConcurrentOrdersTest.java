@@ -3,6 +3,10 @@ package dev.cuccorese.brokerage.trading;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.cuccorese.brokerage.TestcontainersConfiguration;
+import dev.cuccorese.brokerage.shared.Currencies;
+import dev.cuccorese.brokerage.shared.Money;
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -27,23 +31,47 @@ class ConcurrentOrdersTest {
     @Autowired
     private JdbcClient jdbc;
 
+    /** Runs {@code task} on two threads released at the same instant and returns both results. */
+    private static <T> List<T> twiceAtOnce(Callable<T> task) throws Exception {
+        CountDownLatch start = new CountDownLatch(1);
+        Callable<T> onStart = () -> {
+            start.await();
+            return task.call();
+        };
+        try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+            List<Future<T>> futures = List.of(pool.submit(onStart), pool.submit(onStart));
+            start.countDown();
+            List<T> results = new ArrayList<>();
+            for (Future<T> future : futures) {
+                results.add(future.get());
+            }
+            return results;
+        }
+    }
+
     /** PAMP last closed at 925.85, so 1000 pesos pay for one share and not for two. */
     @Test
     void twoOrdersAtOnceCannotSpendTheSameCash() throws Exception {
         int user = new TestAccounts(jdbc).fundedUser(1_000);
         PlaceOrder oneShare = new PlaceOrder(user, PAMP, OrderSide.BUY, OrderType.MARKET, 1, null, null);
-        CountDownLatch start = new CountDownLatch(1);
-        Callable<OrderStatus> placeOnStart = () -> {
-            start.await();
-            return orders.place(oneShare).getStatus();
-        };
 
-        try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
-            List<Future<OrderStatus>> results = List.of(pool.submit(placeOnStart), pool.submit(placeOnStart));
-            start.countDown();
+        assertThat(twiceAtOnce(() -> orders.place(oneShare).getStatus()))
+                .containsExactlyInAnyOrder(OrderStatus.FILLED, OrderStatus.REJECTED);
+    }
 
-            assertThat(List.of(results.get(0).get(), results.get(1).get()))
-                    .containsExactlyInAnyOrder(OrderStatus.FILLED, OrderStatus.REJECTED);
-        }
+    @Test
+    void twoCancelsAtOnceCancelTheOrderOnce() throws Exception {
+        int user = new TestAccounts(jdbc).fundedUser(1_000);
+        Money price = Money.of(Currencies.ARS, new BigDecimal("900"));
+        Integer orderId = orders.place(new PlaceOrder(user, PAMP, OrderSide.BUY, OrderType.LIMIT, 1, null, price))
+                .getId();
+
+        assertThat(twiceAtOnce(() -> {
+            try {
+                return orders.cancel(orderId).getStatus().name();
+            } catch (OrderNotCancellableException e) {
+                return "NOT_CANCELLABLE";
+            }
+        })).containsExactlyInAnyOrder("CANCELLED", "NOT_CANCELLABLE");
     }
 }
