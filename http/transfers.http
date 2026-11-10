@@ -18,6 +18,27 @@ Content-Type: application/json
 
 {"type": "CASH_OUT", "amount": 1000000}
 
+### Withdraw with an idempotency key: made once, the key is kept 24 hours
+POST {{baseUrl}}/users/2/transfers
+Content-Type: application/json
+Idempotency-Key: 5f0c2a8e-withdraw-2026-11-10
+
+{"type": "CASH_OUT", "amount": 1000}
+
+### The same request again: the same transfer, with Idempotent-Replayed: true
+POST {{baseUrl}}/users/2/transfers
+Content-Type: application/json
+Idempotency-Key: 5f0c2a8e-withdraw-2026-11-10
+
+{"type": "CASH_OUT", "amount": 1000}
+
+### The same key with another amount (422 IDEMPOTENCY_KEY_REUSED, nothing stored)
+POST {{baseUrl}}/users/2/transfers
+Content-Type: application/json
+Idempotency-Key: 5f0c2a8e-withdraw-2026-11-10
+
+{"type": "CASH_OUT", "amount": 2000}
+
 ### A non-positive amount (400, nothing stored)
 POST {{baseUrl}}/users/2/transfers
 Content-Type: application/json

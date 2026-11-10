@@ -12,7 +12,7 @@ record TransferRequest(
         @NotNull TransferType type,
         @NotNull @Positive @Digits(integer = 12, fraction = 2) BigDecimal amount) {
 
-    Money pesos() {
-        return Money.of(Currencies.ARS, amount);
+    MakeTransfer toMakeTransfer(Integer userId) {
+        return new MakeTransfer(userId, type, Money.of(Currencies.ARS, amount));
     }
 }

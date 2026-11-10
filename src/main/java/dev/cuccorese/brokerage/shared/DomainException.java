@@ -10,7 +10,7 @@ import lombok.Getter;
  */
 @Getter
 public abstract sealed class DomainException extends RuntimeException
-        permits NotFoundException, InvalidRequestException, ConflictException {
+        permits NotFoundException, InvalidRequestException, ConflictException, UnprocessableContentException {
 
     private final ErrorCode code;
 

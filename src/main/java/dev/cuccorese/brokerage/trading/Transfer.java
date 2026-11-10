@@ -4,6 +4,7 @@ import dev.cuccorese.brokerage.shared.Currencies;
 import dev.cuccorese.brokerage.shared.ErrorCode;
 import dev.cuccorese.brokerage.shared.InvalidRequestException;
 import dev.cuccorese.brokerage.shared.Money;
+import dev.cuccorese.brokerage.shared.idempotency.Identified;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -27,7 +28,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "transfers")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Transfer {
+public class Transfer implements Identified {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

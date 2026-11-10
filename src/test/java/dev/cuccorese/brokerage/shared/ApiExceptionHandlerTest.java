@@ -41,6 +41,11 @@ class ApiExceptionHandlerTest {
             throw new ConflictException(ErrorCode.ORDER_NOT_CANCELLABLE, "Order 7 is FILLED");
         }
 
+        @GetMapping("/test/unprocessable")
+        void unprocessable() {
+            throw new UnprocessableContentException(ErrorCode.IDEMPOTENCY_KEY_REUSED, "Key k1 was already used");
+        }
+
         @GetMapping("/test/unexpected")
         void unexpected() {
             throw new IllegalStateException(SECRET);
@@ -78,6 +83,15 @@ class ApiExceptionHandlerTest {
                 .isLenientlyEqualTo("""
                         {"status": 409, "title": "Conflict", "detail": "Order 7 is FILLED",
                          "code": "ORDER_NOT_CANCELLABLE", "requestId": "req-1"}
+                        """);
+    }
+
+    @Test
+    void unprocessableContentIs422WithItsCode() {
+        assertThat(get("/test/unprocessable")).hasStatus(HttpStatus.UNPROCESSABLE_CONTENT).bodyJson()
+                .isLenientlyEqualTo("""
+                        {"status": 422, "title": "Unprocessable Content", "detail": "Key k1 was already used",
+                         "code": "IDEMPOTENCY_KEY_REUSED", "requestId": "req-1"}
                         """);
     }
 

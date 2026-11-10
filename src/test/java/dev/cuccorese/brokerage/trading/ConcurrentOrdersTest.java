@@ -6,9 +6,12 @@ import dev.cuccorese.brokerage.TestcontainersConfiguration;
 import dev.cuccorese.brokerage.shared.ConflictException;
 import dev.cuccorese.brokerage.shared.Currencies;
 import dev.cuccorese.brokerage.shared.Money;
+import dev.cuccorese.brokerage.shared.idempotency.IdempotencyKey;
+import dev.cuccorese.brokerage.shared.idempotency.IdempotentResult;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -73,7 +76,7 @@ class ConcurrentOrdersTest {
         int user = accounts.fundedUser(1_000);
         PlaceOrder oneShare = new PlaceOrder(user, PAMP, OrderSide.BUY, OrderType.MARKET, 1, null, null);
 
-        assertThat(twiceAtOnce(() -> orders.place(oneShare).getStatus()))
+        assertThat(twiceAtOnce(() -> orders.place(oneShare, Optional.empty()).resource().getStatus()))
                 .containsExactlyInAnyOrder(OrderStatus.FILLED, OrderStatus.REJECTED);
     }
 
@@ -81,8 +84,8 @@ class ConcurrentOrdersTest {
     void twoCancelsAtOnceCancelTheOrderOnce() throws Exception {
         int user = accounts.fundedUser(1_000);
         Money price = Money.of(Currencies.ARS, new BigDecimal("900"));
-        Integer orderId = orders.place(new PlaceOrder(user, PAMP, OrderSide.BUY, OrderType.LIMIT, 1, null, price))
-                .getId();
+        Integer orderId = orders.place(new PlaceOrder(user, PAMP, OrderSide.BUY, OrderType.LIMIT, 1, null, price),
+                Optional.empty()).resource().getId();
 
         assertThat(twiceAtOnce(() -> {
             try {
@@ -101,11 +104,40 @@ class ConcurrentOrdersTest {
         PlaceOrder buyForEverything = new PlaceOrder(user, PAMP, OrderSide.BUY, OrderType.MARKET, null, everything, null);
 
         List<String> outcomes = atOnce(List.of(
-                () -> "withdrawal " + transfers.make(user, TransferType.CASH_OUT, everything).getStatus(),
-                () -> "buy " + orders.place(buyForEverything).getStatus()));
+                () -> "withdrawal " + transfers.make(new MakeTransfer(user, TransferType.CASH_OUT, everything),
+                        Optional.empty()).resource().getStatus(),
+                () -> "buy " + orders.place(buyForEverything, Optional.empty()).resource().getStatus()));
 
         assertThat(outcomes).isIn(
                 List.of("withdrawal COMPLETED", "buy REJECTED"),
                 List.of("withdrawal REJECTED", "buy FILLED"));
+    }
+
+    /** 10 000 pesos pay for both orders, so only the key can stop the second one. */
+    @Test
+    void twoRequestsAtOnceWithTheSameKeyPlaceOneOrder() throws Exception {
+        int user = accounts.fundedUser(10_000);
+        PlaceOrder oneShare = new PlaceOrder(user, PAMP, OrderSide.BUY, OrderType.MARKET, 1, null, null);
+        Optional<IdempotencyKey> key = Optional.of(new IdempotencyKey("retry-1"));
+
+        List<IdempotentResult<Order>> results = twiceAtOnce(() -> orders.place(oneShare, key));
+
+        assertThat(results).extracting(result -> result.resource().getId()).containsOnly(results.getFirst().resource().getId());
+        assertThat(results).extracting(IdempotentResult::replayed).containsExactlyInAnyOrder(false, true);
+        assertThat(accounts.orderCount(user)).isEqualTo(1);
+    }
+
+    /** 1000 pesos cover both withdrawals, so only the key can stop the second one. */
+    @Test
+    void twoWithdrawalsAtOnceWithTheSameKeyMakeOneTransfer() throws Exception {
+        int user = accounts.fundedUser(1_000);
+        MakeTransfer withdrawal = new MakeTransfer(user, TransferType.CASH_OUT, Money.of(Currencies.ARS, new BigDecimal("400")));
+        Optional<IdempotencyKey> key = Optional.of(new IdempotencyKey("retry-2"));
+
+        List<IdempotentResult<Transfer>> results = twiceAtOnce(() -> transfers.make(withdrawal, key));
+
+        assertThat(results).extracting(result -> result.resource().getId()).containsOnly(results.getFirst().resource().getId());
+        assertThat(results).extracting(IdempotentResult::replayed).containsExactlyInAnyOrder(false, true);
+        assertThat(accounts.transferCount(user)).isEqualTo(2);
     }
 }

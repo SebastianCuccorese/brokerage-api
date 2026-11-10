@@ -70,11 +70,21 @@ A deposit or a withdrawal of pesos is a transfer, with its own table (`transfers
 - **The same lock:** a withdrawal locks the user's row as an order does, so a withdrawal and a buy at the same time cannot spend the same pesos.
 - **History:** `GET /users/{userId}/transfers` returns them newest first. Another user's transfer answers 404, like one that does not exist.
 
+## Idempotency
+
+A client that retries after a timeout does not know whether its request arrived, and in a brokerage a retry must not buy or withdraw twice. `POST /orders` and `POST /users/{userId}/transfers` take an optional `Idempotency-Key` header, with the semantics of the IETF draft "The Idempotency-Key HTTP Header Field": the first request with a key is processed and the key is stored (table `idempotency_keys`, migration V7); a retry with the same key returns the same order or transfer, marked `Idempotent-Replayed: true`, instead of creating another. Without the header nothing changes.
+
+- **On the user lock:** the key is looked up and stored in the same transaction that already locks the user's row, so a concurrent retry waits for the first request and finds its key. That is why the 409 the draft foresees for a request still in flight is not needed; the unique constraint on (user, operation, key) is the safety net.
+- **A retry returns the resource as it is now** (an order cancelled since shows `CANCELLED`), not a copy of the first response: the client cares about what exists and in what state, and storing responses would duplicate what `orders` and `transfers` already hold. A `REJECTED` order or withdrawal is a result too: the retry returns it rejected and does not decide again. A request that fails (400, 404) stores nothing and its key stays free.
+- **The same key with a different request** is a 422 `IDEMPOTENCY_KEY_REUSED` and stores nothing. What is compared is a SHA-256 of the parsed request, not of its bytes, so field order, spacing or `1000` against `1000.00` do not change it.
+- **The weak point is that the client supplies the key:** it must generate it, keep it and resend the same one; if it loses it, a retry is a new order. A server-side fingerprint built from the operation's own fields (user, instrument, side, size or amount, and price within a short window) was considered: it needs nothing from the client, but it would also block two legitimate identical orders. The client key was kept and the fingerprint is noted as a possible complement. It is not the hash above, which only checks that a reused key carries the same request.
+- **Retention:** a key holds for at least 24 hours; an hourly task deletes the expired ones. It is per user and per operation (placing an order or making a transfer), 1 to 64 characters of `[A-Za-z0-9._:-]`, quoted or not (`"abc"` is `abc`), because the draft defines it as a structured-field string.
+
 ## Errors
 
 Every error response is a problem detail (RFC 9457) with a stable `code` and the request's `requestId`. The domain throws exceptions that carry their `code` but do not know what HTTP is; one `@RestControllerAdvice` turns each category into a status. That way a client switches on the `code`, and support finds the logs with the `requestId`.
 
-- **Categories:** `NotFoundException` (404), `InvalidRequestException` (400) and `ConflictException` (409), each with an `ErrorCode` (`ORDER_NOT_FOUND`, `ORDER_NOT_CANCELLABLE`, `SIZE_OR_AMOUNT_REQUIRED`...). A code is never renamed or given a new meaning; the text can change.
+- **Categories:** `NotFoundException` (404), `InvalidRequestException` (400), `ConflictException` (409) and `UnprocessableContentException` (422: the request contradicts an earlier one, such as a reused idempotency key; not a 409 because retrying cannot fix it, only changing the request can), each with an `ErrorCode` (`ORDER_NOT_FOUND`, `ORDER_NOT_CANCELLABLE`, `SIZE_OR_AMOUNT_REQUIRED`...). A code is never renamed or given a new meaning; the text can change.
 - **Validation:** a 400 `VALIDATION_FAILED` with an `errors` list of `{field, message}`, so a client can mark the field. Broken JSON is `MALFORMED_REQUEST` and does not repeat Jackson's message.
 - **Framework errors** (method not allowed, unknown route) keep their status and gain the `requestId`, without a `code`.
 - **A 500 never leaks internals:** it answers `INTERNAL_ERROR` with a generic text asking to quote the `requestId`; the message and stack stay in the log, at ERROR level.

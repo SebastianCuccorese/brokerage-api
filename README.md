@@ -57,6 +57,8 @@ Usan un Postgres descartable (Testcontainers) con los mismos datos, así que nec
 | GET | `/users/{userId}/transfers` | Transferencias del usuario, de la más nueva a la más vieja |
 | GET | `/users/{userId}/transfers/{transferId}` | Devuelve una transferencia del usuario |
 
+`POST /orders` y `POST /users/{userId}/transfers` aceptan un header opcional `Idempotency-Key`: un reintento con la misma clave devuelve la misma orden o transferencia en lugar de crear otra ([Idempotencia](docs/decisions.md#idempotencia)).
+
 Documentación interactiva de la API: <http://localhost:8080/swagger-ui.html>
 
 Hay ejemplos listos para ejecutar en [`http/`](http/) (REST Client de VS Code o IntelliJ).

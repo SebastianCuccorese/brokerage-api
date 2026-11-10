@@ -15,6 +15,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
@@ -40,6 +41,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             case NotFoundException e -> HttpStatus.NOT_FOUND;
             case InvalidRequestException e -> HttpStatus.BAD_REQUEST;
             case ConflictException e -> HttpStatus.CONFLICT;
+            case UnprocessableContentException e -> HttpStatus.UNPROCESSABLE_CONTENT;
         };
         return respond(ex, status, ex.getCode(), ex.getMessage(), request);
     }
@@ -114,8 +116,13 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return error instanceof FieldError field ? field.getField() : error.getObjectName();
     }
 
+    /** A header is named as the client sends it ({@code Idempotency-Key}), not by its Java parameter. */
     private static String fieldOf(MessageSourceResolvable error, MethodParameter parameter) {
-        return error instanceof FieldError field ? field.getField() : parameter.getParameterName();
+        if (error instanceof FieldError field) {
+            return field.getField();
+        }
+        RequestHeader header = parameter.getParameterAnnotation(RequestHeader.class);
+        return header != null && !header.name().isEmpty() ? header.name() : parameter.getParameterName();
     }
 
     /** One invalid input: the field (or parameter) that failed and why. */
