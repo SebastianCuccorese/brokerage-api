@@ -23,7 +23,7 @@ spring:
 
 logging:
   pattern:
-    correlation: "[%X{requestId:-}] "
+    correlation: '%replace([%X{requestId:-}] ){"\[\] ", ""}'
 
 management:
   endpoints:

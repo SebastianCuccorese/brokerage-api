@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.cuccorese.brokerage.TestcontainersConfiguration;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import java.util.stream.Stream;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
