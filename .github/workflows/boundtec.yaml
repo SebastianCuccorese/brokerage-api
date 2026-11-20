@@ -1,0 +1,76 @@
+# boundtec-managed
+# Builds this repository's image and tells Boundtec which image to deploy. Written by Boundtec's setup pull request; the
+# build settings come from provisionerd.yaml, so this file has no inputs.
+name: boundtec
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions: {}
+
+# A second push waits for the first run instead of cancelling it, so an older image never lands after a newer one.
+concurrency:
+  group: boundtec-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # The token endpoint answers only runs of the default branch; running elsewhere would fail instead of skip.
+    if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Check out this repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      # The build steps live in a private repository: Boundtec hands this run a one-hour read token for it, proven by the
+      # run's OIDC token. No secret is stored here.
+      - name: Get access to the Boundtec build steps
+        id: pipes
+        shell: bash
+        env:
+          PROVISIONERD_URL: https://provisionerd.boundtec.co
+          AUDIENCE: https://provisionerd.boundtec.co/pipeline
+          RETRY_SLEEP: "10"
+        run: |
+          set -euo pipefail
+          [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || { echo "::error::No OIDC token. The job needs 'permissions: id-token: write'."; exit 1; }
+          aud="$(jq -rn --arg a "$AUDIENCE" '$a | @uri')"
+          jwt="$(curl -sSf --retry 3 --max-time 30 -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${aud}" | jq -r .value)"
+          if [ -z "$jwt" ] || [ "$jwt" = null ]; then echo "::error::GitHub did not return an OIDC token."; exit 1; fi
+          echo "::add-mask::${jwt}"
+          resp="$(mktemp)"; trap 'rm -f "$resp"' EXIT
+          for attempt in 1 2 3; do
+            status="$(curl -sS -o "$resp" -w '%{http_code}' --max-time 30 -X POST "${PROVISIONERD_URL}/v1/pipeline/token" -H "Authorization: Bearer ${jwt}" || true)"
+            case "$status" in
+              200) break ;;
+              000 | 429 | 5??) echo "::warning::attempt ${attempt}: HTTP ${status}"; [ "$attempt" -lt 3 ] && sleep $((RETRY_SLEEP * attempt)) ;;
+              *) break ;;
+            esac
+          done
+          if [ "$status" != 200 ]; then
+            echo "::error::Boundtec did not hand out the build steps (HTTP ${status}): $(jq -r '.code + ": " + .message' "$resp" 2>/dev/null || echo 'no answer'). A 403 means this repository is not connected to Boundtec or the run is not on its default branch; a 5xx or no answer is on Boundtec's side, run the workflow again."
+            exit 1
+          fi
+          token="$(jq -r .token "$resp")"
+          echo "::add-mask::${token}"
+          echo "token=${token}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the Boundtec build steps
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: Boundtec/boundtec-pipes
+          ref: v1
+          path: .boundtec-pipes
+          token: ${{ steps.pipes.outputs.token }}
+          persist-credentials: false
+
+      - name: Build and release
+        uses: ./.boundtec-pipes/.github/actions/pipeline
