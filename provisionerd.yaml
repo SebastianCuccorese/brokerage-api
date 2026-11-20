@@ -1,0 +1,10 @@
+apiVersion: provisionerd/v1alpha1
+name: brokerage-api
+build:
+  dockerfile: Dockerfile
+processes:
+  web:
+    port: 8080
+needs:
+  postgres:
+    kind: postgres
